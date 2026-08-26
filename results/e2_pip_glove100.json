@@ -1,0 +1,226 @@
+{
+ "k": 10,
+ "n_queries": 1000,
+ "baseline": [
+  {
+   "ef": 10,
+   "recall_avg": 0.4733,
+   "recall_p5": 0.0,
+   "recall_p1": 0.0,
+   "n_dist_avg": 518.264,
+   "ms_per_query": 0.1831784580135718
+  },
+  {
+   "ef": 20,
+   "recall_avg": 0.6011,
+   "recall_p5": 0.0,
+   "recall_p1": 0.0,
+   "n_dist_avg": 775.552,
+   "ms_per_query": 0.28530175000196323
+  },
+  {
+   "ef": 40,
+   "recall_avg": 0.7151000000000001,
+   "recall_p5": 0.1,
+   "recall_p1": 0.0,
+   "n_dist_avg": 1221.934,
+   "ms_per_query": 0.485881166998297
+  },
+  {
+   "ef": 80,
+   "recall_avg": 0.7928999999999999,
+   "recall_p5": 0.2,
+   "recall_p1": 0.0,
+   "n_dist_avg": 1995.105,
+   "ms_per_query": 0.8622316670080181
+  },
+  {
+   "ef": 160,
+   "recall_avg": 0.8526,
+   "recall_p5": 0.3,
+   "recall_p1": 0.1,
+   "n_dist_avg": 3429.162,
+   "ms_per_query": 1.5365328329789918
+  },
+  {
+   "ef": 320,
+   "recall_avg": 0.9002,
+   "recall_p5": 0.5,
+   "recall_p1": 0.3,
+   "n_dist_avg": 6092.838,
+   "ms_per_query": 2.8914932499756105
+  },
+  {
+   "ef": 640,
+   "recall_avg": 0.9340000000000002,
+   "recall_p5": 0.6,
+   "recall_p1": 0.4,
+   "n_dist_avg": 11033.141,
+   "ms_per_query": 5.442392875003861
+  }
+ ],
+ "pip_sweep": [
+  {
+   "ef": 10,
+   "gamma": 0.95,
+   "delta": 30,
+   "recall_avg": 0.4733,
+   "recall_p5": 0.0,
+   "recall_p1": 0.0,
+   "n_dist_avg": 518.264,
+   "ms_per_query": 0.2042821670183912
+  },
+  {
+   "ef": 20,
+   "gamma": 0.95,
+   "delta": 30,
+   "recall_avg": 0.6011,
+   "recall_p5": 0.0,
+   "recall_p1": 0.0,
+   "n_dist_avg": 775.552,
+   "ms_per_query": 0.4047457080159802
+  },
+  {
+   "ef": 40,
+   "gamma": 0.95,
+   "delta": 30,
+   "recall_avg": 0.7151000000000001,
+   "recall_p5": 0.1,
+   "recall_p1": 0.0,
+   "n_dist_avg": 1217.362,
+   "ms_per_query": 0.7942146660061553
+  },
+  {
+   "ef": 80,
+   "gamma": 0.95,
+   "delta": 30,
+   "recall_avg": 0.7803,
+   "recall_p5": 0.2,
+   "recall_p1": 0.0,
+   "n_dist_avg": 1711.599,
+   "ms_per_query": 1.410460166982375
+  },
+  {
+   "ef": 160,
+   "gamma": 0.95,
+   "delta": 30,
+   "recall_avg": 0.798,
+   "recall_p5": 0.2,
+   "recall_p1": 0.1,
+   "n_dist_avg": 1928.328,
+   "ms_per_query": 1.9988418340217322
+  },
+  {
+   "ef": 320,
+   "gamma": 0.95,
+   "delta": 30,
+   "recall_avg": 0.7989,
+   "recall_p5": 0.2,
+   "recall_p1": 0.1,
+   "n_dist_avg": 1942.069,
+   "ms_per_query": 2.5647062080097385
+  },
+  {
+   "ef": 640,
+   "gamma": 0.95,
+   "delta": 30,
+   "recall_avg": 0.7989,
+   "recall_p5": 0.2,
+   "recall_p1": 0.1,
+   "n_dist_avg": 1942.069,
+   "ms_per_query": 3.2869994590000715
+  }
+ ],
+ "pip_grid": [
+  {
+   "ef": 320,
+   "gamma": 0.8,
+   "delta": 10,
+   "recall_avg": 0.49870000000000003,
+   "recall_p5": 0.0,
+   "recall_p1": 0.0,
+   "n_dist_avg": 567.726,
+   "ms_per_query": 0.5971096249995753
+  },
+  {
+   "ef": 320,
+   "gamma": 0.8,
+   "delta": 30,
+   "recall_avg": 0.6779000000000001,
+   "recall_p5": 0.0,
+   "recall_p1": 0.0,
+   "n_dist_avg": 1068.588,
+   "ms_per_query": 1.3483210419944953
+  },
+  {
+   "ef": 320,
+   "gamma": 0.8,
+   "delta": 50,
+   "recall_avg": 0.7449000000000001,
+   "recall_p5": 0.1,
+   "recall_p1": 0.0,
+   "n_dist_avg": 1501.416,
+   "ms_per_query": 2.004135249997489
+  },
+  {
+   "ef": 320,
+   "gamma": 0.9,
+   "delta": 10,
+   "recall_avg": 0.5612,
+   "recall_p5": 0.0,
+   "recall_p1": 0.0,
+   "n_dist_avg": 693.99,
+   "ms_per_query": 0.7830034159997012
+  },
+  {
+   "ef": 320,
+   "gamma": 0.9,
+   "delta": 30,
+   "recall_avg": 0.7181,
+   "recall_p5": 0.1,
+   "recall_p1": 0.0,
+   "n_dist_avg": 1254.967,
+   "ms_per_query": 1.6054220829973929
+  },
+  {
+   "ef": 320,
+   "gamma": 0.9,
+   "delta": 50,
+   "recall_avg": 0.772,
+   "recall_p5": 0.1,
+   "recall_p1": 0.0,
+   "n_dist_avg": 1707.802,
+   "ms_per_query": 2.282534375000978
+  },
+  {
+   "ef": 320,
+   "gamma": 0.95,
+   "delta": 10,
+   "recall_avg": 0.6756000000000001,
+   "recall_p5": 0.0,
+   "recall_p1": 0.0,
+   "n_dist_avg": 1041.479,
+   "ms_per_query": 1.2819223340193275
+  },
+  {
+   "ef": 320,
+   "gamma": 0.95,
+   "delta": 30,
+   "recall_avg": 0.7989,
+   "recall_p5": 0.2,
+   "recall_p1": 0.1,
+   "n_dist_avg": 1942.069,
+   "ms_per_query": 2.5812781670247205
+  },
+  {
+   "ef": 320,
+   "gamma": 0.95,
+   "delta": 50,
+   "recall_avg": 0.84,
+   "recall_p5": 0.3,
+   "recall_p1": 0.19900000000000004,
+   "n_dist_avg": 2652.508,
+   "ms_per_query": 3.6245449999987613
+  }
+ ]
+}

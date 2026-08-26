@@ -1,0 +1,55 @@
+{
+ "k": 10,
+ "n_queries": 1000,
+ "rows": [
+  {
+   "ef": 10,
+   "py_recall": 0.7045,
+   "faiss_recall": 0.7045,
+   "n_dist_avg": 410.794,
+   "ms_per_query": 0.21892120799748227
+  },
+  {
+   "ef": 20,
+   "py_recall": 0.8332,
+   "faiss_recall": 0.8332999999999999,
+   "n_dist_avg": 596.454,
+   "ms_per_query": 0.36698233301285654
+  },
+  {
+   "ef": 40,
+   "py_recall": 0.925,
+   "faiss_recall": 0.9249,
+   "n_dist_avg": 936.144,
+   "ms_per_query": 0.5353970830328763
+  },
+  {
+   "ef": 80,
+   "py_recall": 0.9752000000000001,
+   "faiss_recall": 0.9751000000000001,
+   "n_dist_avg": 1580.024,
+   "ms_per_query": 0.9381912910030223
+  },
+  {
+   "ef": 160,
+   "py_recall": 0.9942000000000001,
+   "faiss_recall": 0.9941,
+   "n_dist_avg": 2747.539,
+   "ms_per_query": 1.7099625829723664
+  },
+  {
+   "ef": 320,
+   "py_recall": 0.9989000000000001,
+   "faiss_recall": 0.9987,
+   "n_dist_avg": 4804.175,
+   "ms_per_query": 3.263388000021223
+  },
+  {
+   "ef": 640,
+   "py_recall": 0.9993,
+   "faiss_recall": 0.9991,
+   "n_dist_avg": 8328.547,
+   "ms_per_query": 6.273736374976579
+  }
+ ]
+}

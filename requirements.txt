@@ -1,0 +1,5 @@
+faiss-cpu==1.14.3
+numpy==2.5.1
+h5py==3.16.0
+matplotlib==3.11.1
+python-pptx==1.0.2

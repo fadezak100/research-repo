@@ -1,0 +1,20 @@
+# helper tooling & generated slides
+tools/
+
+# vendored external library
+hnsw-ada-ef/
+
+# large datasets & built indexes (regenerable/downloadable)
+faiss/data/
+patience-in-proximity/data/
+patience-in-proximity/index/
+patience-in-proximity/build/
+patience-in-proximity/lib/
+
+# python / env cruft
+__pycache__/
+*.pyc
+.venv/
+.mypy_cache/
+typings/
+.DS_Store

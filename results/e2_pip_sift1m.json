@@ -1,0 +1,226 @@
+{
+ "k": 10,
+ "n_queries": 1000,
+ "baseline": [
+  {
+   "ef": 10,
+   "recall_avg": 0.7045,
+   "recall_p5": 0.29500000000000026,
+   "recall_p1": 0.0,
+   "n_dist_avg": 410.794,
+   "ms_per_query": 0.19858925003791228
+  },
+  {
+   "ef": 20,
+   "recall_avg": 0.8332,
+   "recall_p5": 0.5,
+   "recall_p1": 0.3,
+   "n_dist_avg": 596.454,
+   "ms_per_query": 0.2974579169531353
+  },
+  {
+   "ef": 40,
+   "recall_avg": 0.925,
+   "recall_p5": 0.7,
+   "recall_p1": 0.599,
+   "n_dist_avg": 936.144,
+   "ms_per_query": 0.47206779196858406
+  },
+  {
+   "ef": 80,
+   "recall_avg": 0.9752000000000001,
+   "recall_p5": 0.9,
+   "recall_p1": 0.7,
+   "n_dist_avg": 1580.024,
+   "ms_per_query": 0.8320792919839732
+  },
+  {
+   "ef": 160,
+   "recall_avg": 0.9942000000000001,
+   "recall_p5": 0.9,
+   "recall_p1": 0.9,
+   "n_dist_avg": 2747.539,
+   "ms_per_query": 1.5398574170540087
+  },
+  {
+   "ef": 320,
+   "recall_avg": 0.9989000000000001,
+   "recall_p5": 1.0,
+   "recall_p1": 0.9,
+   "n_dist_avg": 4804.175,
+   "ms_per_query": 2.930054750002455
+  },
+  {
+   "ef": 640,
+   "recall_avg": 0.9993,
+   "recall_p5": 1.0,
+   "recall_p1": 1.0,
+   "n_dist_avg": 8328.547,
+   "ms_per_query": 5.678899332997389
+  }
+ ],
+ "pip_sweep": [
+  {
+   "ef": 10,
+   "gamma": 0.95,
+   "delta": 30,
+   "recall_avg": 0.7045,
+   "recall_p5": 0.29500000000000026,
+   "recall_p1": 0.0,
+   "n_dist_avg": 410.794,
+   "ms_per_query": 0.21214654203504324
+  },
+  {
+   "ef": 20,
+   "gamma": 0.95,
+   "delta": 30,
+   "recall_avg": 0.8332,
+   "recall_p5": 0.5,
+   "recall_p1": 0.3,
+   "n_dist_avg": 596.454,
+   "ms_per_query": 0.40032383397920057
+  },
+  {
+   "ef": 40,
+   "gamma": 0.95,
+   "delta": 30,
+   "recall_avg": 0.9248,
+   "recall_p5": 0.7,
+   "recall_p1": 0.599,
+   "n_dist_avg": 931.683,
+   "ms_per_query": 0.7480715420097113
+  },
+  {
+   "ef": 80,
+   "gamma": 0.95,
+   "delta": 30,
+   "recall_avg": 0.9602999999999999,
+   "recall_p5": 0.8,
+   "recall_p1": 0.7,
+   "n_dist_avg": 1240.126,
+   "ms_per_query": 1.1993986669695005
+  },
+  {
+   "ef": 160,
+   "gamma": 0.95,
+   "delta": 30,
+   "recall_avg": 0.9617,
+   "recall_p5": 0.8,
+   "recall_p1": 0.7,
+   "n_dist_avg": 1273.248,
+   "ms_per_query": 1.5387122920365073
+  },
+  {
+   "ef": 320,
+   "gamma": 0.95,
+   "delta": 30,
+   "recall_avg": 0.9617,
+   "recall_p5": 0.8,
+   "recall_p1": 0.7,
+   "n_dist_avg": 1273.29,
+   "ms_per_query": 1.9413648750050925
+  },
+  {
+   "ef": 640,
+   "gamma": 0.95,
+   "delta": 30,
+   "recall_avg": 0.9617,
+   "recall_p5": 0.8,
+   "recall_p1": 0.7,
+   "n_dist_avg": 1273.29,
+   "ms_per_query": 2.3690487910062075
+  }
+ ],
+ "pip_grid": [
+  {
+   "ef": 320,
+   "gamma": 0.8,
+   "delta": 10,
+   "recall_avg": 0.7392000000000001,
+   "recall_p5": 0.3,
+   "recall_p1": 0.1,
+   "n_dist_avg": 457.009,
+   "ms_per_query": 0.505619041970931
+  },
+  {
+   "ef": 320,
+   "gamma": 0.8,
+   "delta": 30,
+   "recall_avg": 0.9062,
+   "recall_p5": 0.6,
+   "recall_p1": 0.5,
+   "n_dist_avg": 835.472,
+   "ms_per_query": 1.1686133749899454
+  },
+  {
+   "ef": 320,
+   "gamma": 0.8,
+   "delta": 50,
+   "recall_avg": 0.9532,
+   "recall_p5": 0.8,
+   "recall_p1": 0.6,
+   "n_dist_avg": 1178.462,
+   "ms_per_query": 1.780865459004417
+  },
+  {
+   "ef": 320,
+   "gamma": 0.9,
+   "delta": 10,
+   "recall_avg": 0.7934000000000001,
+   "recall_p5": 0.4,
+   "recall_p1": 0.2,
+   "n_dist_avg": 529.203,
+   "ms_per_query": 0.6266170419985428
+  },
+  {
+   "ef": 320,
+   "gamma": 0.9,
+   "delta": 30,
+   "recall_avg": 0.923,
+   "recall_p5": 0.7,
+   "recall_p1": 0.5,
+   "n_dist_avg": 923.339,
+   "ms_per_query": 1.3370998329482973
+  },
+  {
+   "ef": 320,
+   "gamma": 0.9,
+   "delta": 50,
+   "recall_avg": 0.9606000000000001,
+   "recall_p5": 0.8,
+   "recall_p1": 0.7,
+   "n_dist_avg": 1270.535,
+   "ms_per_query": 2.0181597089977004
+  },
+  {
+   "ef": 320,
+   "gamma": 0.95,
+   "delta": 10,
+   "recall_avg": 0.8801000000000001,
+   "recall_p5": 0.6,
+   "recall_p1": 0.4,
+   "n_dist_avg": 722.596,
+   "ms_per_query": 0.9679224169813097
+  },
+  {
+   "ef": 320,
+   "gamma": 0.95,
+   "delta": 30,
+   "recall_avg": 0.9617,
+   "recall_p5": 0.8,
+   "recall_p1": 0.7,
+   "n_dist_avg": 1273.29,
+   "ms_per_query": 1.9333896249881946
+  },
+  {
+   "ef": 320,
+   "gamma": 0.95,
+   "delta": 50,
+   "recall_avg": 0.9817,
+   "recall_p5": 0.9,
+   "recall_p1": 0.8,
+   "n_dist_avg": 1702.978,
+   "ms_per_query": 2.74378420796711
+  }
+ ]
+}
