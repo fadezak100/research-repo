@@ -293,6 +293,43 @@ def fig_e7():
     savefig(fig, "e7_hardness")
 
 
+def fig_e7_key():
+    """Two-panel version for the slide: the cause (GT spread) and its
+    consequence in the graph (GT islands)."""
+    data = load("e7_hardness_glove100")
+    pq = data["per_query"]
+    recalls = np.array(pq["recalls"])
+    levels = [("<=0.25\n(hard)", 0.0, 0.25), ("~0.5", 0.26, 0.5),
+              ("~0.75", 0.51, 0.8), ("~1.0\n(easy)", 0.81, 1.0)]
+    panels = [
+        ("gt_pairwise", "the cause — GT spread:\nmean distance between the 100 true neighbors",
+         "cosine distance"),
+        ("gt_components", "the consequence — GT islands:\nconnected components of GT-100 in the graph",
+         "islands"),
+    ]
+    fig, axes = plt.subplots(1, 2, figsize=(11.5, 5.0))
+    fig.subplots_adjust(wspace=0.25, top=0.76)
+    corr = data["spearman_recall_vs_metric"]
+    for ax, (key, title, ylab) in zip(axes, panels):
+        vals = np.array(pq[key])
+        groups = [vals[(recalls >= lo) & (recalls <= hi)] for _, lo, hi in levels]
+        bp = ax.boxplot(groups, patch_artist=True, showfliers=False, widths=0.55,
+                        medianprops=dict(color=INK, linewidth=1.8))
+        for patch in bp["boxes"]:
+            patch.set_facecolor(BLUE)
+            patch.set_alpha(0.55)
+            patch.set_edgecolor(BASE)
+        ax.set_xticks(range(1, 5), [name for name, *_ in levels], fontsize=11)
+        ax.set_title(f"{title}\ncorr with recall: {corr[key]:+.2f}", fontsize=12)
+        ax.set_ylabel(ylab, fontsize=11)
+    fig.suptitle(
+        "E7 — hard queries' true neighbors are far apart, so the graph leaves them "
+        "as disconnected islands (GloVe-100, 1000 queries)",
+        y=1.0, fontsize=13,
+    )
+    savefig(fig, "e7_hardness_key")
+
+
 DATASET_TITLES = {"glove100": "GloVe-100", "sift1m": "SIFT1M"}
 
 

@@ -1,6 +1,6 @@
 """E7 — what makes a query hard?
 
-Professor's question: bin queries by hardness (recall at a fixed setting),
+question: bin queries by hardness (recall at a fixed setting),
 look at each query's ground-truth top-100 (GT), and compute "closeness"
 metrics on the GT set — do harder queries have ground truths that are, e.g.,
 further from each other?
@@ -86,23 +86,38 @@ def main():
     rand_ids = rng.choice(len(ds.train), 2000, replace=False)
     rand_vecs = ds.train[rand_ids]
 
-    metrics = {k: [] for k in
-               ["q_gt_mean", "gt_pairwise", "contrast", "rel_contrast",
-                "gt_components", "gt_indegree"]}
+    metrics = {
+        k: []
+        for k in [
+            "q_gt_mean",
+            "gt_pairwise",
+            "contrast",
+            "rel_contrast",
+            "gt_components",
+            "gt_indegree", 
+        ]
+    }
     for i in range(n_q):
         q = ds.test[i]
         gt = ds.ground_truth[i][:100]
         G = ds.train[gt]
-        d_qgt = 1.0 - G @ q                       # query -> each GT member
-        pair = 1.0 - G @ G.T                      # GT <-> GT
+        d_qgt = 1.0 - G @ q  # query -> each GT member
+        pair = 1.0 - G @ G.T  # GT <-> GT
         off = pair[np.triu_indices(len(gt), 1)]
         d_rand = 1.0 - rand_vecs @ q
 
+        # mean distance query -> its 100 true neighbors (close friends at all?)
         metrics["q_gt_mean"].append(float(d_qgt.mean()))
+        # mean distance between GT members themselves (is the GT set spread out?)
         metrics["gt_pairwise"].append(float(off.mean()))
+        # d100/d1: worst vs best neighbor; ~1 = flat, neighbors indistinguishable
         metrics["contrast"].append(float(d_qgt.max() / max(d_qgt.min(), 1e-9)))
+        # distance to random vectors vs to top-10 GT (do true neighbors stand
+        # out from background noise?)
         metrics["rel_contrast"].append(float(d_rand.mean() / d_qgt[:10].mean()))
+        # number of connected "islands" the GT forms in the level-0 graph
         metrics["gt_components"].append(components_within(gt, adj0))
+        # mean in-degree of GT nodes: rarely-linked GT is hard to reach
         metrics["gt_indegree"].append(float(indegree[gt].mean()))
 
     # correlations with hardness over all queries (hard = low recall)
@@ -112,15 +127,23 @@ def main():
     levels_out = []
     for name, lo, hi in LEVELS:
         sel = (recalls >= lo) & (recalls <= hi)
-        levels_out.append({
-            "level": name, "n_queries": int(sel.sum()),
-            **{k: {"mean": float(np.array(v)[sel].mean()),
-                   "median": float(np.median(np.array(v)[sel]))}
-               for k, v in metrics.items()},
-        })
+        levels_out.append(
+            {
+                "level": name,
+                "n_queries": int(sel.sum()),
+                **{
+                    k: {
+                        "mean": float(np.array(v)[sel].mean()),
+                        "median": float(np.median(np.array(v)[sel])),
+                    }
+                    for k, v in metrics.items()
+                },
+            }
+        )
 
     out = {
-        "dataset": "glove100", "hardness_from": "recall@10, HNSW ef=160",
+        "dataset": "glove100",
+        "hardness_from": "recall@10, HNSW ef=160",
         "n_queries": n_q,
         "spearman_recall_vs_metric": corr,
         "levels": levels_out,
@@ -128,8 +151,10 @@ def main():
     }
     (RESULTS_DIR / "e7_hardness_glove100.json").write_text(json.dumps(out, indent=1))
 
-    print(f"{'metric':>14} {'corr(recall)':>12}   " +
-          "  ".join(f"{name:>14}" for name, *_ in LEVELS))
+    print(
+        f"{'metric':>14} {'corr(recall)':>12}   "
+        + "  ".join(f"{name:>14}" for name, *_ in LEVELS)
+    )
     for k in metrics:
         row = "  ".join(f"{lv[k]['mean']:>14.3f}" for lv in levels_out)
         print(f"{k:>14} {corr[k]:>12.3f}   {row}")
