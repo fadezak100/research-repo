@@ -459,84 +459,73 @@ def fig_e11():
     savefig(fig, "e11_avgdist")
 
 
-def fig_pip_iso_recall():
-    """Lucene PIP replication: the paper's unmatched-recall speedup vs the
-    saving at matched recall, plus the recall/cost frontiers that show why."""
+def fig_pip_iso_recall(k=1000):
+    """Lucene PIP replication at one k: the saving the paper's comparison
+    method reports vs the saving at matched recall, and the frontier behind it."""
     path = RESULTS.parent / "patience-in-proximity" / "results" / "lucene_pip_replication.json"
     d = json.loads(path.read_text())
     sweep = d["sweep"]
-    ks = sorted({r["k"] for r in sweep})
+    base = sorted([r for r in sweep if r["k"] == k and r["method"] == "baseline"],
+                  key=lambda r: r["visited_avg"])
+    pat = sorted([r for r in sweep if r["k"] == k and r["method"] == "patience"],
+                 key=lambda r: r["ef"])
+    R = [r["recall"] for r in base]
+    C = [r["visited_avg"] for r in base]
+    sav = []
+    for p_ in pat:
+        if R[0] <= p_["recall"] <= R[-1]:
+            eq = float(np.interp(p_["recall"], R, C))
+            sav.append((eq - p_["visited_avg"]) / eq * 100)
+    pbest = max(pat, key=lambda r: r["recall"])
+    bmax = max(base, key=lambda r: r["visited_avg"])
+    paper = (1 - pbest["visited_avg"] / bmax["visited_avg"]) * 100
+    med, best = float(np.median(sav)), float(max(sav))
 
-    rows = []  # (k, paper-style %, median iso %, best iso %)
-    per_k = {}
-    for k in ks:
-        base = sorted([r for r in sweep if r["k"] == k and r["method"] == "baseline"],
-                      key=lambda r: r["visited_avg"])
-        pat = sorted([r for r in sweep if r["k"] == k and r["method"] == "patience"],
-                     key=lambda r: r["ef"])
-        R = [r["recall"] for r in base]
-        C = [r["visited_avg"] for r in base]
-        sav = []
-        for p_ in pat:
-            if R[0] <= p_["recall"] <= R[-1]:
-                eq = float(np.interp(p_["recall"], R, C))
-                sav.append((eq - p_["visited_avg"]) / eq * 100)
-        pbest = max(pat, key=lambda r: r["recall"])
-        bmax = max(base, key=lambda r: r["visited_avg"])
-        paper = (1 - pbest["visited_avg"] / bmax["visited_avg"]) * 100
-        rows.append((k, paper, float(np.median(sav)), float(max(sav))))
-        per_k[k] = (base, pat)
+    fig, (ax, ax2) = plt.subplots(1, 2, figsize=(12.5, 5.0),
+                                  gridspec_kw={"width_ratios": [1, 1.35], "wspace": 0.3})
 
-    fig = plt.figure(figsize=(14, 8.2))
-    gs = fig.add_gridspec(2, 3, height_ratios=[1.0, 1.0], hspace=0.42, wspace=0.28)
-
-    # --- top: the claim vs the matched-recall saving
-    ax = fig.add_subplot(gs[0, :])
-    x = np.arange(len(rows))
-    w = 0.34
-    paper_v = [r[1] for r in rows]
-    med_v = [r[2] for r in rows]
-    best_v = [r[3] for r in rows]
-    b1 = ax.bar(x - w / 2, paper_v, w, color=ORANGE, label="paper's comparison method applied to our sweep (recall not matched)")
-    b2 = ax.bar(x + w / 2, med_v, w, color=BLUE, label="at matched recall (median over sweep)")
-    ax.scatter(x + w / 2, best_v, marker="_", s=420, color=INK, linewidths=2,
-               label="at matched recall (best point)", zorder=3)
-    for xi, v in zip(x - w / 2, paper_v):
-        ax.annotate(f"{v:.0f}% fewer visits\n(our sweep, unmatched recall)", (xi, v), ha="center", va="bottom",
-                    fontsize=10, color=INK2, xytext=(0, 3), textcoords="offset points")
-    for xi, v, b in zip(x + w / 2, med_v, best_v):
-        ax.annotate(f"matched recall:\nmedian {v:+.1f}%, best {b:+.1f}%",
-                    (xi, max(b, 0)), ha="center", va="bottom",
-                    fontsize=9.5, color=INK2, xytext=(0, 4), textcoords="offset points")
+    # --- left: two bars
+    ax.bar([0], [paper], 0.55, color=ORANGE)
+    ax.bar([1], [med], 0.55, color=BLUE)
+    ax.scatter([1], [best], marker="_", s=600, color=INK, linewidths=2, zorder=3)
+    ax.annotate(f"{paper:.0f}%", (0, paper), ha="center", va="bottom", fontsize=12,
+                color=INK2, xytext=(0, 3), textcoords="offset points")
+    ax.annotate(f"median {med:+.1f}%\nbest {best:+.1f}%", (1, max(best, 0)),
+                ha="center", va="bottom", fontsize=10.5, color=INK2,
+                xytext=(0, 5), textcoords="offset points")
     ax.axhline(0, color=BASE, linewidth=1)
-    ax.set_xticks(x, [f"k = {r[0]}" for r in rows], fontsize=11)
-    ax.set_ylabel("reduction in nodes visited\nvs plain HNSW (%)", fontsize=10)
-    ax.set_ylim(-5, 78)
-    ax.legend(fontsize=9, loc="upper center", ncol=3, bbox_to_anchor=(0.5, 1.0))
-    ax.set_title(
-        "PIP in Lucene 10.5 (SIFT1M, 1000 queries): the paper's comparison method "
-        "vs the saving at matched recall\nall percentages are from our sweep; "
-        "the paper itself reports 39–42% fewer visits on BEIR (p. 406)",
-        fontsize=12, pad=14,
-    )
+    ax.set_xticks([0, 1], ["paper's comparison method\n(PIP best vs HNSW most\n"
+                           "expensive; recall not matched)",
+                           "at matched recall\n(HNSW ef interpolated\nto PIP's recall)"],
+                  fontsize=9.5)
+    ax.set_ylabel("reduction in nodes visited vs plain HNSW (%)", fontsize=10)
+    ax.set_ylim(-5, max(paper, best) * 1.25)
+    ax.set_title(f"k = {k}: the saving PIP appears to give\nvs the saving it actually gives",
+                 fontsize=11)
 
-    # --- bottom: frontiers, one per k
-    for j, k in enumerate(ks):
-        ax = fig.add_subplot(gs[1, j])
-        base, pat = per_k[k]
-        ax.plot([r["visited_avg"] for r in base], [r["recall"] for r in base],
-                "-o", color=BLUE, markersize=5, label="plain HNSW (efSearch sweep)")
-        ax.plot([r["visited_avg"] for r in pat], [r["recall"] for r in pat],
-                "s", color=ORANGE, markersize=6, markerfacecolor="white",
-                markeredgewidth=1.8, label="PIP (same efSearch values)")
-        ax.set_title(f"k = {k}: PIP sits on the plain-HNSW frontier", fontsize=10.5)
-        ax.set_xlabel("nodes visited / query", fontsize=9.5)
-        if j == 0:
-            ax.set_ylabel(f"recall@k", fontsize=9.5)
-            ax.legend(fontsize=8.5, loc="lower right")
-        lo = min(r["recall"] for r in pat + base)
-        ax.set_ylim(lo - 0.01, 1.003)
-    savefig(fig, "pip_lucene_iso_recall")
+    # --- right: the frontier
+    ax2.plot([r["visited_avg"] for r in base], R, "-o", color=BLUE, markersize=5,
+             label="plain HNSW (efSearch sweep)")
+    ax2.plot([r["visited_avg"] for r in pat], [r["recall"] for r in pat], "s",
+             color=ORANGE, markersize=6.5, markerfacecolor="white", markeredgewidth=1.8,
+             label="PIP (same efSearch values)")
+    for r in pat:
+        ax2.annotate(f"ef={r['ef']}", (r["visited_avg"], r["recall"]), fontsize=8,
+                     color=INK2, xytext=(6, -10), textcoords="offset points")
+    ax2.set_xlabel("nodes visited / query", fontsize=10)
+    ax2.set_ylabel(f"recall@{k}", fontsize=10)
+    lo = min(r["recall"] for r in pat + base)
+    ax2.set_ylim(lo - 0.01, 1.003)
+    ax2.legend(fontsize=9, loc="lower right")
+    ax2.set_title(f"k = {k}: PIP sits on the plain-HNSW frontier —\n"
+                  "each PIP point costs what plain HNSW costs at that recall", fontsize=11)
+
+    fig.suptitle(
+        f"PIP in Lucene 10.5, SIFT1M, 1000 queries, k = {k} — all percentages are from "
+        "our sweep; the paper reports 39–42% fewer visits on BEIR (p. 406)",
+        y=1.03, fontsize=12,
+    )
+    savefig(fig, f"pip_lucene_iso_recall_k{k}")
 
 
 def spearman_np(x, y):
