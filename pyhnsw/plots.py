@@ -330,6 +330,67 @@ def fig_e7_key():
     savefig(fig, "e7_hardness_key")
 
 
+def fig_e10():
+    """E10 — graph distance among the GT (whiteboard): d_G vs d_vec."""
+    data = load("e10_gt_graphdist_glove100")
+    e7 = load("e7_hardness_glove100")
+    pq = data["per_query"]
+    recalls = np.array(pq["recalls"])
+    hops = np.array(pq["gt_hops_mean"])
+    far = np.array(pq["gt_hops_far"])
+    dvec = np.array(e7["per_query"]["gt_pairwise"])
+    corr = data["spearman_recall_vs_metric"]
+    H = data["max_hops"]
+    levels = [("<=0.25\n(hard)", 0.0, 0.25), ("~0.5", 0.26, 0.5),
+              ("~0.75", 0.51, 0.8), ("~1.0\n(easy)", 0.81, 1.0)]
+
+    fig, axes = plt.subplots(1, 3, figsize=(14, 4.8))
+    fig.subplots_adjust(wspace=0.32, top=0.78)
+
+    def box(ax, vals, title, ylab, key):
+        groups = [vals[(recalls >= lo) & (recalls <= hi)] for _, lo, hi in levels]
+        bp = ax.boxplot(groups, patch_artist=True, showfliers=False, widths=0.55,
+                        medianprops=dict(color=INK, linewidth=1.8))
+        for patch in bp["boxes"]:
+            patch.set_facecolor(BLUE)
+            patch.set_alpha(0.55)
+            patch.set_edgecolor(BASE)
+        ax.set_xticks(range(1, 5), [name for name, *_ in levels], fontsize=10)
+        ax.set_title(f"{title}\ncorr with recall: {corr[key]:+.2f}", fontsize=11)
+        ax.set_ylabel(ylab, fontsize=10)
+
+    box(axes[0], hops, "avg-dist: mean shortest-path hops\nbetween GT-100 pairs (4950 pairs)",
+        "hops (level-0 graph)", "gt_hops_mean")
+    box(axes[1], far, f"fraction of GT pairs more than\n{H} hops apart",
+        "fraction of pairs", "gt_hops_far")
+
+    ax = axes[2]
+    hard = recalls <= 0.25
+    easy = recalls >= 0.81
+    mid = ~hard & ~easy
+    ax.scatter(dvec[mid], hops[mid], s=9, color=MUTED, alpha=0.35, label="in between")
+    ax.scatter(dvec[easy], hops[easy], s=11, color=BLUE, alpha=0.6, label="easy (recall ≥ 0.81)")
+    ax.scatter(dvec[hard], hops[hard], s=13, color=ORANGE, alpha=0.8, label="hard (recall ≤ 0.25)")
+    rho = spearman_np(dvec, hops)
+    ax.set_xlabel("d_vec: mean cosine distance between GT pairs", fontsize=10)
+    ax.set_ylabel("d_G: mean hops between GT pairs", fontsize=10)
+    ax.set_title(f"vector spread vs graph spread\nSpearman ρ = {rho:+.2f}", fontsize=11)
+    ax.legend(fontsize=8.5, loc="upper left")
+
+    fig.suptitle(
+        "E10 — hard queries' true neighbors are many hops apart in the HNSW graph "
+        "(GloVe-100, 1000 queries, GT-100)",
+        y=1.0, fontsize=13,
+    )
+    savefig(fig, "e10_gt_graphdist")
+
+
+def spearman_np(x, y):
+    rx = np.argsort(np.argsort(x)).astype(float)
+    ry = np.argsort(np.argsort(y)).astype(float)
+    return float(np.corrcoef(rx, ry)[0, 1])
+
+
 DATASET_TITLES = {"glove100": "GloVe-100", "sift1m": "SIFT1M"}
 
 
