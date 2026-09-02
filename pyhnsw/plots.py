@@ -385,6 +385,80 @@ def fig_e10():
     savefig(fig, "e10_gt_graphdist")
 
 
+def fig_e11():
+    """E11 — exact avg-dist (whiteboard method, no hop cap)."""
+    data = load("e11_avgdist_glove100")
+    pq = data["per_query"]
+    recalls = np.array(pq["recalls"])
+    avg = np.array(pq["avg_dist"], dtype=float)
+    mx = np.array(pq["max_dist"], dtype=float)
+    hist = data["pair_hop_histogram"]
+    levels = [("<=0.25\n(hard)", 0.0, 0.25), ("~0.5", 0.26, 0.5),
+              ("~0.75", 0.51, 0.8), ("~1.0\n(easy)", 0.81, 1.0)]
+
+    fig, axes = plt.subplots(1, 3, figsize=(14, 4.8))
+    fig.subplots_adjust(wspace=0.32, top=0.78)
+
+    def box(ax, vals, title, ylab):
+        groups = [vals[(recalls >= lo) & (recalls <= hi)] for _, lo, hi in levels]
+        bp = ax.boxplot(groups, patch_artist=True, showfliers=False, widths=0.55,
+                        medianprops=dict(color=INK, linewidth=1.8))
+        for patch in bp["boxes"]:
+            patch.set_facecolor(BLUE)
+            patch.set_alpha(0.55)
+            patch.set_edgecolor(BASE)
+        ax.set_xticks(range(1, 5), [name for name, *_ in levels], fontsize=10)
+        ax.set_title(title, fontsize=11)
+        ax.set_ylabel(ylab, fontsize=10)
+
+    box(axes[0], avg,
+        "avg-dist: mean shortest-path hops between\nGT-100 pairs (exact, 4950 pairs)"
+        f"\ncorr with recall: {data['spearman_recall_vs_avg_dist']:+.2f}",
+        "hops (level-0 graph)")
+    ax = axes[1]
+    hop_vals = sorted(set(int(v) for v in mx))
+    shades = [BLUE, AQUA, YELLOW, ORANGE, "#b03a2e"][: len(hop_vals)]
+    bottom = np.zeros(len(levels))
+    for hv, col in zip(hop_vals, shades):
+        frac = np.array([
+            np.mean(mx[(recalls >= lo) & (recalls <= hi)] == hv) for _, lo, hi in levels
+        ])
+        ax.bar(range(len(levels)), frac, bottom=bottom, color=col, width=0.6,
+               label=f"{hv} hops")
+        for x, (b, f) in enumerate(zip(bottom, frac)):
+            if f >= 0.08:
+                ax.annotate(f"{f:.0%}", (x, b + f / 2), ha="center", va="center",
+                            fontsize=9, color="white")
+        bottom += frac
+    ax.set_xticks(range(len(levels)), [name for name, *_ in levels], fontsize=10)
+    ax.set_ylim(0, 1)
+    ax.set_ylabel("fraction of queries", fontsize=10)
+    ax.set_title("max-dist: how far apart is the\nfarthest pair of true neighbors?", fontsize=11)
+    ax.legend(fontsize=8.5, loc="upper right", bbox_to_anchor=(1.0, -0.14), ncol=len(hop_vals))
+
+    ax = axes[2]
+    keys = [k for k in hist if k != "inf"]
+    xs = [int(k) for k in keys]
+    ys = np.array([hist[k] for k in keys], dtype=float)
+    ys /= ys.sum()
+    ax.bar(xs, ys, color=BLUE, alpha=0.75, width=0.7)
+    for x, y in zip(xs, ys):
+        ax.annotate(f"{y:.1%}", (x, y), ha="center", va="bottom", fontsize=9, color=INK2)
+    ax.set_xticks(xs)
+    ax.set_xlabel("hops between a pair of true neighbors", fontsize=10)
+    ax.set_ylabel("fraction of all pairs", fontsize=10)
+    unreach = hist.get("inf", 0)
+    ax.set_title(f"exact pair-distance distribution\n(all queries pooled; unreachable pairs: {unreach})",
+                 fontsize=11)
+
+    fig.suptitle(
+        "E11 — avg-dist exactly as specified: hard queries' true neighbors are farther apart "
+        "in the HNSW graph (GloVe-100, 1000 queries)",
+        y=1.0, fontsize=13,
+    )
+    savefig(fig, "e11_avgdist")
+
+
 def spearman_np(x, y):
     rx = np.argsort(np.argsort(x)).astype(float)
     ry = np.argsort(np.argsort(y)).astype(float)
