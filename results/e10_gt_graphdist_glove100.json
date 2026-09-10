@@ -29,25 +29,21 @@
  "spearman_vs_e7": {
   "gt_hops_mean": {
    "gt_pairwise": 0.8117961077961078,
-   "gt_components": 0.9626745986745988,
    "q_gt_mean": 0.8326301566301566,
    "rel_contrast": -0.9002308562308562
   },
   "gt_hops_median": {
    "gt_pairwise": 0.5697558657558657,
-   "gt_components": 0.7204037884037885,
    "q_gt_mean": 0.592009084009084,
    "rel_contrast": -0.6734210054210055
   },
   "gt_hops_far": {
    "gt_pairwise": 0.7995663915663916,
-   "gt_components": 0.904063912063912,
    "q_gt_mean": 0.8324343404343405,
    "rel_contrast": -0.8665219945219945
   },
   "gt_nn_hops": {
    "gt_pairwise": 0.7952561672561673,
-   "gt_components": 0.9919991959991961,
    "q_gt_mean": 0.8304599544599545,
    "rel_contrast": -0.9272470232470235
   }

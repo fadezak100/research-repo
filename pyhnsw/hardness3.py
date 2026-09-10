@@ -1,10 +1,8 @@
 """E10 — graph distance among a query's true neighbors (whiteboard 2026-09-01).
 
 E7 measured how spread out a query's ground-truth top-100 (GT) is in *vector*
-space (gt_pairwise = mean cosine distance between GT members) and, coarsely,
-in the *graph* (gt_components = number of islands the GT forms when the HNSW
-level-0 graph is restricted to GT nodes). This experiment measures graph
-spread properly:
+space (gt_pairwise = mean cosine distance between GT members). This
+experiment measures the same spread in the *graph*:
 
     d_G(u, v) = shortest-path hop count from u to v in the level-0 HNSW graph
 
@@ -164,7 +162,7 @@ def main():
     arr = {k: np.array(v) for k, v in metrics.items()}
     corr_recall = {k: spearman(recalls, arr[k]) for k in keys}
     corr_cost = {k: spearman(n_dists, arr[k]) for k in keys}
-    e7_keys = ["gt_pairwise", "gt_components", "q_gt_mean", "rel_contrast"]
+    e7_keys = ["gt_pairwise", "q_gt_mean", "rel_contrast"]
     corr_e7 = {
         k: {j: spearman(np.array(e7["per_query"][j]), arr[k]) for j in e7_keys}
         for k in keys

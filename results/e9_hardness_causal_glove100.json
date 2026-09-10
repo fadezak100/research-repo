@@ -17,7 +17,6 @@
    "gt_pairwise": 0.641,
    "contrast": 1.224,
    "rel_contrast": 1.836,
-   "gt_components": 77.0,
    "gt_indegree": 32.99
   },
   {
@@ -28,7 +27,6 @@
    "gt_pairwise": 0.653,
    "contrast": 1.1,
    "rel_contrast": 1.775,
-   "gt_components": 76.0,
    "gt_indegree": 33.76
   },
   {
@@ -39,7 +37,6 @@
    "gt_pairwise": 0.718,
    "contrast": 1.178,
    "rel_contrast": 1.757,
-   "gt_components": 88.0,
    "gt_indegree": 25.23
   },
   {
@@ -50,7 +47,6 @@
    "gt_pairwise": 0.631,
    "contrast": 1.233,
    "rel_contrast": 1.852,
-   "gt_components": 79.0,
    "gt_indegree": 34.25
   },
   {
@@ -61,7 +57,6 @@
    "gt_pairwise": 0.62,
    "contrast": 1.15,
    "rel_contrast": 1.822,
-   "gt_components": 83.0,
    "gt_indegree": 41.3
   },
   {
@@ -72,7 +67,6 @@
    "gt_pairwise": 0.667,
    "contrast": 1.148,
    "rel_contrast": 1.783,
-   "gt_components": 80.0,
    "gt_indegree": 35.96
   },
   {
@@ -83,7 +77,6 @@
    "gt_pairwise": 0.656,
    "contrast": 1.152,
    "rel_contrast": 1.792,
-   "gt_components": 79.0,
    "gt_indegree": 30.52
   },
   {
@@ -94,7 +87,6 @@
    "gt_pairwise": 0.654,
    "contrast": 1.324,
    "rel_contrast": 1.879,
-   "gt_components": 69.0,
    "gt_indegree": 34.35
   },
   {
@@ -105,7 +97,6 @@
    "gt_pairwise": 0.694,
    "contrast": 1.332,
    "rel_contrast": 1.856,
-   "gt_components": 84.0,
    "gt_indegree": 26.36
   },
   {
@@ -116,7 +107,6 @@
    "gt_pairwise": 0.613,
    "contrast": 1.199,
    "rel_contrast": 1.919,
-   "gt_components": 69.0,
    "gt_indegree": 48.32
   },
   {
@@ -127,7 +117,6 @@
    "gt_pairwise": 0.623,
    "contrast": 1.175,
    "rel_contrast": 1.784,
-   "gt_components": 76.0,
    "gt_indegree": 32.2
   },
   {
@@ -138,7 +127,6 @@
    "gt_pairwise": 0.592,
    "contrast": 1.413,
    "rel_contrast": 1.919,
-   "gt_components": 76.0,
    "gt_indegree": 28.71
   },
   {
@@ -149,7 +137,6 @@
    "gt_pairwise": 0.618,
    "contrast": 1.353,
    "rel_contrast": 1.929,
-   "gt_components": 71.0,
    "gt_indegree": 30.23
   },
   {
@@ -160,7 +147,6 @@
    "gt_pairwise": 0.636,
    "contrast": 1.102,
    "rel_contrast": 1.794,
-   "gt_components": 77.0,
    "gt_indegree": 37.64
   },
   {
@@ -171,7 +157,6 @@
    "gt_pairwise": 0.669,
    "contrast": 1.175,
    "rel_contrast": 1.826,
-   "gt_components": 73.0,
    "gt_indegree": 38.82
   },
   {
@@ -182,7 +167,6 @@
    "gt_pairwise": 0.654,
    "contrast": 1.239,
    "rel_contrast": 1.818,
-   "gt_components": 64.0,
    "gt_indegree": 31.94
   },
   {
@@ -193,7 +177,6 @@
    "gt_pairwise": 0.58,
    "contrast": 1.175,
    "rel_contrast": 1.949,
-   "gt_components": 63.0,
    "gt_indegree": 44.57
   },
   {
@@ -204,7 +187,6 @@
    "gt_pairwise": 0.576,
    "contrast": 1.158,
    "rel_contrast": 1.879,
-   "gt_components": 59.0,
    "gt_indegree": 39.3
   },
   {
@@ -215,7 +197,6 @@
    "gt_pairwise": 0.599,
    "contrast": 1.245,
    "rel_contrast": 1.892,
-   "gt_components": 74.0,
    "gt_indegree": 39.17
   },
   {
@@ -226,7 +207,6 @@
    "gt_pairwise": 0.685,
    "contrast": 1.417,
    "rel_contrast": 1.898,
-   "gt_components": 79.0,
    "gt_indegree": 28.04
   },
   {
@@ -237,7 +217,6 @@
    "gt_pairwise": 0.595,
    "contrast": 1.27,
    "rel_contrast": 2.045,
-   "gt_components": 60.0,
    "gt_indegree": 43.3
   },
   {
@@ -248,7 +227,6 @@
    "gt_pairwise": 0.555,
    "contrast": 1.303,
    "rel_contrast": 2.063,
-   "gt_components": 53.0,
    "gt_indegree": 49.01
   },
   {
@@ -259,7 +237,6 @@
    "gt_pairwise": 0.481,
    "contrast": 2.061,
    "rel_contrast": 2.313,
-   "gt_components": 34.0,
    "gt_indegree": 40.38
   },
   {
@@ -270,7 +247,6 @@
    "gt_pairwise": 0.639,
    "contrast": 1.548,
    "rel_contrast": 2.089,
-   "gt_components": 52.0,
    "gt_indegree": 39.41
   },
   {
@@ -281,7 +257,6 @@
    "gt_pairwise": 0.651,
    "contrast": 1.247,
    "rel_contrast": 1.851,
-   "gt_components": 48.0,
    "gt_indegree": 29.42
   },
   {
@@ -292,7 +267,6 @@
    "gt_pairwise": 0.52,
    "contrast": 1.204,
    "rel_contrast": 1.962,
-   "gt_components": 36.0,
    "gt_indegree": 37.42
   },
   {
@@ -303,7 +277,6 @@
    "gt_pairwise": 0.553,
    "contrast": 1.17,
    "rel_contrast": 1.938,
-   "gt_components": 65.0,
    "gt_indegree": 37.6
   },
   {
@@ -314,7 +287,6 @@
    "gt_pairwise": 0.447,
    "contrast": 1.268,
    "rel_contrast": 2.337,
-   "gt_components": 13.0,
    "gt_indegree": 59.2
   },
   {
@@ -325,7 +297,6 @@
    "gt_pairwise": 0.644,
    "contrast": 1.137,
    "rel_contrast": 1.803,
-   "gt_components": 67.0,
    "gt_indegree": 36.31
   },
   {
@@ -336,7 +307,6 @@
    "gt_pairwise": 0.614,
    "contrast": 1.344,
    "rel_contrast": 2.015,
-   "gt_components": 53.0,
    "gt_indegree": 37.12
   },
   {
@@ -347,7 +317,6 @@
    "gt_pairwise": 0.234,
    "contrast": 1.82,
    "rel_contrast": 4.882,
-   "gt_components": 1.0,
    "gt_indegree": 24.5
   },
   {
@@ -358,7 +327,6 @@
    "gt_pairwise": 0.423,
    "contrast": 1.383,
    "rel_contrast": 2.426,
-   "gt_components": 5.0,
    "gt_indegree": 37.23
   },
   {
@@ -369,7 +337,6 @@
    "gt_pairwise": 0.401,
    "contrast": 2.01,
    "rel_contrast": 3.121,
-   "gt_components": 2.0,
    "gt_indegree": 24.71
   },
   {
@@ -380,7 +347,6 @@
    "gt_pairwise": 0.464,
    "contrast": 1.395,
    "rel_contrast": 2.239,
-   "gt_components": 13.0,
    "gt_indegree": 31.29
   },
   {
@@ -391,7 +357,6 @@
    "gt_pairwise": 0.481,
    "contrast": 1.457,
    "rel_contrast": 2.489,
-   "gt_components": 9.0,
    "gt_indegree": 35.56
   },
   {
@@ -402,7 +367,6 @@
    "gt_pairwise": 0.473,
    "contrast": 1.303,
    "rel_contrast": 2.276,
-   "gt_components": 10.0,
    "gt_indegree": 40.5
   },
   {
@@ -413,7 +377,6 @@
    "gt_pairwise": 0.577,
    "contrast": 2.846,
    "rel_contrast": 3.082,
-   "gt_components": 2.0,
    "gt_indegree": 29.03
   },
   {
@@ -424,7 +387,6 @@
    "gt_pairwise": 0.587,
    "contrast": 1.342,
    "rel_contrast": 2.218,
-   "gt_components": 29.0,
    "gt_indegree": 34.71
   },
   {
@@ -435,7 +397,6 @@
    "gt_pairwise": 0.593,
    "contrast": 1.683,
    "rel_contrast": 2.303,
-   "gt_components": 15.0,
    "gt_indegree": 36.56
   },
   {
@@ -446,7 +407,6 @@
    "gt_pairwise": 0.465,
    "contrast": 1.44,
    "rel_contrast": 2.659,
-   "gt_components": 4.0,
    "gt_indegree": 42.27
   }
  ],
@@ -1871,7 +1831,6 @@
   3588
  ],
  "cost_spearman": {
-  "gt_components": 0.8651535131535132,
   "rel_contrast": -0.8195831075831077,
   "gt_pairwise": 0.7737852777852778,
   "q_gt_mean": 0.7423708543708544,

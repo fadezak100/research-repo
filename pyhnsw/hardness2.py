@@ -1,8 +1,7 @@
 """E9 — is query hardness a data problem or an algorithm problem?
 
-E7 showed hard queries' GT-100 is spread out (gt_pairwise), barely stands out
-from noise (rel_contrast) and fragments into many islands of the HNSW graph
-(gt_components). Those are correlations. E9 adds the causal tests:
+E7 showed hard queries' GT-100 is spread out (gt_pairwise) and barely stands
+out from noise (rel_contrast). Those are correlations. E9 adds the causal tests:
 
   asymptote  : run the hard bin (recall@10 <= 0.25 at ef=160) with ever larger
                ef. If recall -> 1.0 the graph CAN find the GT — hardness is a
@@ -12,7 +11,7 @@ from noise (rel_contrast) and fragments into many islands of the HNSW graph
                query's true nearest neighbor (skipping the upper-layer
                descent). If recall recovers, the problem is *routing to the
                right region*. If it stays low, even starting inside the GT
-               region the beam cannot cover the other islands — a
+               region the beam cannot reach the rest of the GT — a
                data-geometry problem.
   cost link  : per-query distance computations at fixed ef vs the E7 metrics —
                hard queries are also the expensive ones.
@@ -60,7 +59,7 @@ def main():
                 "level": name, "query": qi, "recall@10_ef160": float(recalls160[qi]),
                 **{m: round(float(pq[m][qi]), 3)
                    for m in ["q_gt_mean", "gt_pairwise", "contrast",
-                             "rel_contrast", "gt_components", "gt_indegree"]},
+                             "rel_contrast", "gt_indegree"]},
             })
 
     # ---- asymptote test: recall of the hard bin as ef grows ----
@@ -105,7 +104,7 @@ def main():
     r160 = run_config(ctx, ef=160)
     nd = np.array(r160["n_dists"])
     cost_corr = {m: spearman(nd, np.array(pq[m]))
-                 for m in ["gt_components", "rel_contrast", "gt_pairwise", "q_gt_mean"]}
+                 for m in ["rel_contrast", "gt_pairwise", "q_gt_mean"]}
     cost_corr["recall"] = spearman(nd, recalls160)
     print("spearman(n_dist@ef160, ·):",
           {k: round(v, 3) for k, v in cost_corr.items()})

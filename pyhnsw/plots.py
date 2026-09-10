@@ -264,7 +264,6 @@ def fig_e7():
     levels = [("<=0.25\n(hard)", 0.0, 0.25), ("~0.5", 0.26, 0.5),
               ("~0.75", 0.51, 0.8), ("~1.0\n(easy)", 0.81, 1.0)]
     panels = [
-        ("gt_components", "GT forms N islands in the graph\n(connected components of GT-100)", "islands"),
         ("rel_contrast", "how much GT stands out vs random\n(random dist ÷ top-10 dist)", "ratio"),
         ("gt_pairwise", "GT spread: mean distance\nbetween GT members", "cosine distance"),
         ("q_gt_mean", "query → its GT:\nmean distance", "cosine distance"),
@@ -286,6 +285,8 @@ def fig_e7():
         ax.set_xticks(range(1, 5), [name for name, *_ in levels], fontsize=8.5)
         ax.set_title(f"{title}\ncorr with recall: {corr[key]:+.2f}", fontsize=9.5)
         ax.set_ylabel(ylab, fontsize=8.5)
+    for ax in axes.ravel()[len(panels):]:
+        ax.axis("off")
     fig.suptitle(
         "E7 — what makes a query hard? GT-100 structure by hardness level (GloVe-100, 1000 queries)",
         y=0.99, fontsize=13,
@@ -294,18 +295,17 @@ def fig_e7():
 
 
 def fig_e7_key():
-    """Two-panel version for the slide: the cause (GT spread) and its
-    consequence in the graph (GT islands)."""
+    """Two-panel version for the slide: GT spread and contrast vs random."""
     data = load("e7_hardness_glove100")
     pq = data["per_query"]
     recalls = np.array(pq["recalls"])
     levels = [("<=0.25\n(hard)", 0.0, 0.25), ("~0.5", 0.26, 0.5),
               ("~0.75", 0.51, 0.8), ("~1.0\n(easy)", 0.81, 1.0)]
     panels = [
-        ("gt_pairwise", "the cause — GT spread:\nmean distance between the 100 true neighbors",
+        ("gt_pairwise", "GT spread:\nmean distance between the 100 true neighbors",
          "cosine distance"),
-        ("gt_components", "the consequence — GT islands:\nconnected components of GT-100 in the graph",
-         "islands"),
+        ("rel_contrast", "contrast vs random:\nmean distance to random vectors ÷ to top-10",
+         "ratio"),
     ]
     fig, axes = plt.subplots(1, 2, figsize=(11.5, 5.0))
     fig.subplots_adjust(wspace=0.25, top=0.76)
@@ -323,8 +323,8 @@ def fig_e7_key():
         ax.set_title(f"{title}\ncorr with recall: {corr[key]:+.2f}", fontsize=12)
         ax.set_ylabel(ylab, fontsize=11)
     fig.suptitle(
-        "E7 — hard queries' true neighbors are far apart, so the graph leaves them "
-        "as disconnected islands (GloVe-100, 1000 queries)",
+        "E7 — hard queries' true neighbors are far apart and barely stand out "
+        "from random vectors (GloVe-100, 1000 queries)",
         y=1.0, fontsize=13,
     )
     savefig(fig, "e7_hardness_key")
@@ -385,22 +385,35 @@ def fig_e10():
     savefig(fig, "e10_gt_graphdist")
 
 
-def fig_e11():
-    """E11 — exact avg-dist (whiteboard method, no hop cap)."""
-    data = load("e11_avgdist_glove100")
+def fig_e11(name="e11_avgdist_glove100", out="e11_avgdist"):
+    """Exact avg-dist (whiteboard method, no hop cap). `name` selects the
+    results file; hardness bins and GT size are read from it."""
+    data = load(name)
     pq = data["per_query"]
     recalls = np.array(pq["recalls"])
     avg = np.array(pq["avg_dist"], dtype=float)
     mx = np.array(pq["max_dist"], dtype=float)
     hist = data["pair_hop_histogram"]
-    levels = [("<=0.25\n(hard)", 0.0, 0.25), ("~0.5", 0.26, 0.5),
-              ("~0.75", 0.51, 0.8), ("~1.0\n(easy)", 0.81, 1.0)]
+    if "levels_def" in data:
+        inclusive = data["levels_def"][0]["inclusive"]
+        levels = [(lv["level"].replace(" (", "\n("), lv["lo"], lv["hi"])
+                  for lv in data["levels_def"]]
+    else:
+        inclusive = True
+        levels = [("<=0.25\n(hard)", 0.0, 0.25), ("~0.5", 0.26, 0.5),
+                  ("~0.75", 0.51, 0.8), ("~1.0\n(easy)", 0.81, 1.0)]
+    k_gt = data.get("k_gt", 100)
+    n_pairs = k_gt * (k_gt - 1) // 2
+    label = data.get("hardness_from", "recall@10, HNSW ef=160")
+
+    def sel(lo, hi):
+        return (recalls >= lo) & ((recalls <= hi) if inclusive else (recalls < hi))
 
     fig, axes = plt.subplots(1, 3, figsize=(14, 4.8))
     fig.subplots_adjust(wspace=0.32, top=0.78)
 
     def box(ax, vals, title, ylab):
-        groups = [vals[(recalls >= lo) & (recalls <= hi)] for _, lo, hi in levels]
+        groups = [vals[sel(lo, hi)] for _, lo, hi in levels]
         bp = ax.boxplot(groups, patch_artist=True, showfliers=False, widths=0.55,
                         medianprops=dict(color=INK, linewidth=1.8))
         for patch in bp["boxes"]:
@@ -412,17 +425,16 @@ def fig_e11():
         ax.set_ylabel(ylab, fontsize=10)
 
     box(axes[0], avg,
-        "avg-dist: mean shortest-path hops between\nGT-100 pairs (exact, 4950 pairs)"
+        f"avg-dist: mean shortest-path hops between\nGT-{k_gt} pairs (exact, {n_pairs:,} pairs)"
         f"\ncorr with recall: {data['spearman_recall_vs_avg_dist']:+.2f}",
         "hops (level-0 graph)")
     ax = axes[1]
     hop_vals = sorted(set(int(v) for v in mx))
-    shades = [BLUE, AQUA, YELLOW, ORANGE, "#b03a2e"][: len(hop_vals)]
+    shades = ([BLUE, AQUA, YELLOW, ORANGE, "#b03a2e", "#6c3483", "#1b4f72", "#7b7d7d"]
+              * 2)[: len(hop_vals)]
     bottom = np.zeros(len(levels))
     for hv, col in zip(hop_vals, shades):
-        frac = np.array([
-            np.mean(mx[(recalls >= lo) & (recalls <= hi)] == hv) for _, lo, hi in levels
-        ])
+        frac = np.array([np.mean(mx[sel(lo, hi)] == hv) for _, lo, hi in levels])
         ax.bar(range(len(levels)), frac, bottom=bottom, color=col, width=0.6,
                label=f"{hv} hops")
         for x, (b, f) in enumerate(zip(bottom, frac)):
@@ -452,11 +464,11 @@ def fig_e11():
                  fontsize=11)
 
     fig.suptitle(
-        "E11 — avg-dist exactly as specified: hard queries' true neighbors are farther apart "
-        "in the HNSW graph (GloVe-100, 1000 queries)",
+        "avg-dist: hard queries' true neighbors are farther apart "
+        f"in the HNSW graph (GloVe-100, 1000 queries; hardness = {label})",
         y=1.0, fontsize=13,
     )
-    savefig(fig, "e11_avgdist")
+    savefig(fig, out)
 
 
 def fig_pip_iso_recall(k=1000):

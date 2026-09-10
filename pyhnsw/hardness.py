@@ -21,8 +21,6 @@ Metrics per query (GT = its exact top-100 neighbor vectors):
                 (flat profile = neighbors indistinguishable from each other)
   rel_contrast  mean distance to 2000 random vectors / mean distance to GT-10
                 ("how much do the true neighbors stand out from noise?")
-  gt_components number of connected islands the GT forms inside the HNSW
-                graph (edges of the graph restricted to GT members)
   gt_indegree   mean in-degree of GT nodes in the full graph — how "popular" /
                 reachable they are (hubness): rarely-linked GT = hard to reach
 
@@ -41,27 +39,6 @@ LEVELS = [
     ("~0.75", 0.51, 0.8),
     ("~1.0 (easy)", 0.81, 1.0),
 ]
-
-
-def components_within(gt_ids, adj0):
-    """Connected components of the HNSW graph restricted to the GT set."""
-    idx = {int(g): i for i, g in enumerate(gt_ids)}
-    parent = list(range(len(gt_ids)))
-
-    def find(a):
-        while parent[a] != a:
-            parent[a] = parent[parent[a]]
-            a = parent[a]
-        return a
-
-    for i, g in enumerate(gt_ids):
-        for nb in adj0[g]:
-            j = idx.get(int(nb))
-            if j is not None:
-                ra, rb = find(i), find(j)
-                if ra != rb:
-                    parent[ra] = rb
-    return len({find(i) for i in range(len(gt_ids))})
 
 
 def spearman(x, y):
@@ -93,8 +70,7 @@ def main():
             "gt_pairwise",
             "contrast",
             "rel_contrast",
-            "gt_components",
-            "gt_indegree", 
+            "gt_indegree",
         ]
     }
     for i in range(n_q):
@@ -115,8 +91,6 @@ def main():
         # distance to random vectors vs to top-10 GT (do true neighbors stand
         # out from background noise?)
         metrics["rel_contrast"].append(float(d_rand.mean() / d_qgt[:10].mean()))
-        # number of connected "islands" the GT forms in the level-0 graph
-        metrics["gt_components"].append(components_within(gt, adj0))
         # mean in-degree of GT nodes: rarely-linked GT is hard to reach
         metrics["gt_indegree"].append(float(indegree[gt].mean()))
 

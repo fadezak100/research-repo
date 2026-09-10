@@ -204,20 +204,20 @@ exactly the queries E7/E9 explain.
 
 ## Results — what makes a query hard (E7 + E9, GloVe-100)
 
-E7 (correlational, all 1000 queries): hard queries' GT-100 fragments into ~76
-connected components of the level-0 graph vs ~16 for easy queries (Spearman
-−0.73 with recall); their true neighbors barely stand out from random vectors
-(rel_contrast +0.71); GT in-degree shows no signal (hardness ≠ unpopular
-nodes). E9 (causal, `pyhnsw/hardness2.py`):
+E7 (correlational, all 1000 queries): hard queries' true neighbors barely
+stand out from random vectors (rel_contrast, Spearman +0.71 with recall) and
+are spread far apart from each other (gt_pairwise −0.52); GT in-degree shows
+no signal (hardness ≠ unpopular nodes). E9 (causal, `pyhnsw/hardness2.py`):
 
 - **Asymptote:** hard-bin (34 queries ≤0.25 recall@10 at ef=160) recall climbs
   0.16 → 0.93 as ef goes 160 → 5120 with no plateau — the GT *is* reachable,
   at ~22× the cost.
 - **Oracle entry:** starting the search at the query's true NN only lifts
   0.16 → 0.33 (ef=160) and 0.60 → 0.64 (ef=640) — routing is not the
-  bottleneck; even from inside the GT the beam cannot cover the islands.
-- **Cost link:** per-query distance computations correlate ρ=+0.87 with GT
-  island count — hard and expensive for the same geometric reason.
+  bottleneck; even from inside the GT the beam cannot reach the rest of it.
+- **Cost link:** per-query distance computations correlate ρ=−0.82 with
+  rel_contrast and ρ=+0.77 with GT spread — hard and expensive for the same
+  geometric reason.
 
 Verdict: hardness is caused by data geometry (scattered, low-contrast GT that
 the graph never wires together) and is only fixable by per-query budget, not

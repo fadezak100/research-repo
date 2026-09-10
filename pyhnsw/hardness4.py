@@ -1,15 +1,4 @@
-"""E11 — avg-dist, exactly as on the whiteboard (2026-09-01).
-
-E10 (`hardness3.py`) implemented the professor's avg-dist metric with a
-4-hop BFS cap for speed. This experiment removes every shortcut and
-computes the method literally:
-
-    given q
-      pick two nodes u, v from GT (the exact top-100 of q)
-      d(u, v) = min( shortest-path-dist(u, v), shortest-path-dist(v, u) )
-      repeat for all C(100, 2) = 4950 pairs   (or --sample I random pairs)
-      avg-dist(q) = mean of d over the pairs
-    repeat for q_1 ... q_1000
+"""E11 — avg-dist (2026-09-01).
 
 Shortest-path-dist is the hop count over the level-0 HNSW graph's
 out-edges (the graph the beam search actually walks). Each BFS runs until
@@ -34,8 +23,15 @@ Algorithm (exact, but avoids expanding a million-node 4th ring):
                       reachable set is exhausted.
   Verified identical to a plain uncapped BFS on sample queries.
 
-Runtime: ~2-5 s per query on GloVe-100 (1000 queries: ~1 h).
-Usage: .venv/bin/python -m pyhnsw.hardness4 [--sample I] [--n-queries N]
+Hardness labels (--hardness-k):
+  10    recall@10 of plain HNSW at ef=160 (E4), bins <=0.25 / ~0.5 / ~0.75 / ~1.0
+  1000  recall@1000 of plain HNSW at ef=--hardness-ef (default 1000, i.e. ef=k,
+        from the E8 k=1000 sweep), bins <0.6 / 0.6-0.7 / 0.7-0.8 / >=0.8
+The GT set whose pairs are measured is --k-gt (100 = the board's top-100,
+1000 = the query's exact top-1000, C(1000,2) = 499,500 pairs per query).
+
+Usage: .venv/bin/python -m pyhnsw.hardness4 [--hardness-k 10|1000] [--hardness-ef EF]
+           [--k-gt 100|1000] [--sample I] [--n-queries N]
 """
 
 import argparse
@@ -44,12 +40,45 @@ import time
 
 import numpy as np
 
-from .experiments import RESULTS_DIR, get_ctx
+from .experiments import RESULTS_DIR, get_ctx, gt_for_k
 from .graph import DATA_DIR
 from .hardness import LEVELS, spearman
 
 K_GT = 100
 INF = np.iinfo(np.int16).max
+
+# recall@1000 is continuous, so the k=1000 bins are half-open [lo, hi)
+LEVELS_K1000 = [
+    ("<0.6 (hard)", 0.0, 0.6),
+    ("0.6-0.7", 0.6, 0.7),
+    ("0.7-0.8", 0.7, 0.8),
+    (">=0.8 (easy)", 0.8, 1.01),
+]
+
+
+def load_hardness(hardness_k, hardness_ef, n_queries=None):
+    """Per-query recall (the hardness label) and search cost at the labelling
+    operating point, plus the bin definitions and a description string."""
+    if hardness_k == 10:
+        e4 = json.loads((RESULTS_DIR / "e4_recall_skew_glove100.json").read_text())
+        recalls = np.array(e4["configs"][f"baseline_ef{hardness_ef}"]["recalls"])
+        e9 = json.loads((RESULTS_DIR / "e9_hardness_causal_glove100.json").read_text())
+        n_dists = np.array(e9[f"cost_n_dists_ef{hardness_ef}"])
+        levels, inclusive = LEVELS, True
+    elif hardness_k == 1000:
+        e8 = json.loads((RESULTS_DIR / "e8_ksweep_glove100_k1000.json").read_text())
+        row = next(r for r in e8["baseline"] if r["ef"] == hardness_ef)
+        recalls, n_dists = np.array(row["recalls"]), np.array(row["n_dists"])
+        levels, inclusive = LEVELS_K1000, False
+    else:
+        raise SystemExit("--hardness-k must be 10 or 1000")
+    n = n_queries or len(recalls)
+    desc = f"recall@{hardness_k}, HNSW ef={hardness_ef}"
+    return recalls[:n], n_dists[:n], levels, inclusive, desc
+
+
+def bin_mask(recalls, lo, hi, inclusive):
+    return (recalls >= lo) & ((recalls <= hi) if inclusive else (recalls < hi))
 
 
 class ExactBFS:
@@ -154,8 +183,18 @@ class MeetInMiddle:
         self.fallback = ExactBFS(adj0)
 
     def _in_neighbors(self, nodes):
+        """All in-neighbors of `nodes` (with repeats), gathered in one shot."""
+        if len(nodes) == 0:
+            return nodes
         ip, rs = self.indptr, self.rsrc
-        return np.concatenate([rs[ip[v]:ip[v + 1]] for v in nodes]) if len(nodes) else nodes
+        starts, ends = ip[nodes], ip[nodes + 1]
+        counts = ends - starts
+        total = int(counts.sum())
+        if total == 0:
+            return np.empty(0, dtype=rs.dtype)
+        # index vector: for each node, its slice starts..ends
+        offs = np.repeat(starts - np.concatenate(([0], np.cumsum(counts)[:-1])), counts)
+        return rs[np.arange(total) + offs]
 
     def _backward_layers(self, targets):
         """Concatenated backward layers of all targets: nodes B, their layer
@@ -168,7 +207,7 @@ class MeetInMiddle:
                 depth.append(np.full(layer.size, j, dtype=np.int16))
                 if j < BWD_DEPTH:
                     layer = self._in_neighbors(layer)
-            bounds.append(bounds[-1] + sum(x.size for x in nodes[-(BWD_DEPTH + 1):]))
+            bounds.append(bounds[-1] + sum(x.size for x in nodes[-(BWD_DEPTH + 1) :]))
         return np.concatenate(nodes), np.concatenate(depth), np.array(bounds[:-1])
 
     def _forward_layers(self, src):
@@ -210,6 +249,7 @@ class MeetInMiddle:
         iu, ju = np.where(np.triu(D == INF, 1))
         if iu.size:
             deep = {}
+
             def bwd3(t):
                 if t not in deep:
                     layer = np.array([targets[t]], dtype=np.int32)
@@ -217,6 +257,7 @@ class MeetInMiddle:
                         layer = np.unique(self._in_neighbors(layer))
                     deep[t] = layer
                 return deep[t]
+
             partners = {}
             for a, b in zip(iu, ju):
                 partners.setdefault(a, []).append(b)
@@ -272,31 +313,64 @@ def summarize(vals):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--sample", type=int, default=None,
-                    help="board's method 2: draw I random pairs instead of all C(k,2)")
+    ap.add_argument(
+        "--sample",
+        type=int,
+        default=None,
+        help="board's method 2: draw I random pairs instead of all C(k,2)",
+    )
     ap.add_argument("--n-queries", type=int, default=None)
+    ap.add_argument(
+        "--hardness-k",
+        type=int,
+        default=10,
+        choices=(10, 1000),
+        help="k of the plain-HNSW run that labels queries hard/easy",
+    )
+    ap.add_argument(
+        "--hardness-ef",
+        type=int,
+        default=None,
+        help="ef of that run (default 160 for k=10, 1000 for k=1000)",
+    )
+    ap.add_argument(
+        "--k-gt",
+        type=int,
+        default=K_GT,
+        choices=(100, 1000),
+        help="size of the ground-truth set whose pairs are measured",
+    )
     args = ap.parse_args()
+    hardness_ef = args.hardness_ef or (160 if args.hardness_k == 10 else 1000)
+    k_gt = args.k_gt
 
     ctx = get_ctx("glove100")
     ds, graph = ctx.ds, ctx.graph
     indptr, rsrc = build_reverse_csr(
-        graph.adj0, DATA_DIR / "glove100_radj_m16_efc200.npz")
+        graph.adj0, DATA_DIR / "glove100_radj_m16_efc200.npz"
+    )
     bfs = MeetInMiddle(graph.adj0, indptr, rsrc)
     rng = np.random.default_rng(0)
 
-    e4 = json.loads((RESULTS_DIR / "e4_recall_skew_glove100.json").read_text())
-    recalls = np.array(e4["configs"]["baseline_ef160"]["recalls"])
-    e9 = json.loads((RESULTS_DIR / "e9_hardness_causal_glove100.json").read_text())
-    n_dists = np.array(e9["cost_n_dists_ef160"])
-    n_q = args.n_queries or len(recalls)
-    recalls, n_dists = recalls[:n_q], n_dists[:n_q]
+    recalls, n_dists, levels, inclusive, hardness_desc = load_hardness(
+        args.hardness_k, hardness_ef, args.n_queries
+    )
+    n_q = len(recalls)
+    ground_truth = gt_for_k("glove100", k_gt) if k_gt > 100 else ds.ground_truth
+    print(f"hardness labels: {hardness_desc}; GT set: top-{k_gt}; queries: {n_q}")
 
     keys = ["avg_dist", "median_dist", "max_dist", "n_unreachable"]
     per_q = {k: [] for k in keys}
     hist = {}
+    ckpt = DATA_DIR / f"e11_ckpt_k{args.hardness_k}_gt{k_gt}_s{args.sample}.json"
+    if ckpt.exists():
+        saved = json.loads(ckpt.read_text())
+        per_q, hist = saved["per_q"], saved["hist"]
+        print(f"resuming from checkpoint: {len(per_q['avg_dist'])} queries done")
     t0 = time.perf_counter()
-    for i in range(n_q):
-        gt = ds.ground_truth[i][:K_GT]
+    done0 = len(per_q["avg_dist"])
+    for i in range(done0, n_q):
+        gt = ground_truth[i][:k_gt]
         D = bfs.pairwise(gt)
         vals = pair_values(D, rng, args.sample)
         s = summarize(vals)
@@ -306,9 +380,10 @@ def main():
             key = "inf" if v == INF else str(int(v))
             hist[key] = hist.get(key, 0) + int(c)
         if (i + 1) % 25 == 0 or i == n_q - 1:
+            ckpt.write_text(json.dumps({"per_q": per_q, "hist": hist}))
             el = time.perf_counter() - t0
             print(
-                f"{i + 1:4d}/{n_q}  {el:6.0f}s  ({el / (i + 1):.1f}s/q)  "
+                f"{i + 1:4d}/{n_q}  {el:6.0f}s  ({el / (i + 1 - done0):.1f}s/q)  "
                 f"avg-dist so far {np.mean(per_q['avg_dist']):.3f}  "
                 f"unreachable pairs so far {sum(per_q['n_unreachable'])}",
                 flush=True,
@@ -321,7 +396,7 @@ def main():
     # how much did E10's 4-hop cap matter?
     e10_path = RESULTS_DIR / "e10_gt_graphdist_glove100.json"
     vs_e10 = None
-    if e10_path.exists():
+    if e10_path.exists() and args.hardness_k == 10 and k_gt == 100:
         e10 = json.loads(e10_path.read_text())
         capped = np.array(e10["per_query"]["gt_hops_mean"])[:n_q]
         vs_e10 = {
@@ -331,47 +406,75 @@ def main():
         }
 
     levels_out = []
-    for name, lo, hi in LEVELS:
-        sel = (recalls >= lo) & (recalls <= hi)
-        levels_out.append({
-            "level": name,
-            "n_queries": int(sel.sum()),
-            "avg_dist": {"mean": float(avg[sel].mean()),
-                         "median": float(np.median(avg[sel]))},
-            "max_dist": {"mean": float(np.array(per_q["max_dist"])[sel].mean())},
-            "n_unreachable": {"sum": int(np.array(per_q["n_unreachable"])[sel].sum())},
-        })
+    for name, lo, hi in levels:
+        sel = bin_mask(recalls, lo, hi, inclusive)
+        levels_out.append(
+            {
+                "level": name,
+                "n_queries": int(sel.sum()),
+                "avg_dist": {
+                    "mean": float(avg[sel].mean()),
+                    "median": float(np.median(avg[sel])),
+                },
+                "max_dist": {"mean": float(np.array(per_q["max_dist"])[sel].mean())},
+                "n_unreachable": {
+                    "sum": int(np.array(per_q["n_unreachable"])[sel].sum())
+                },
+            }
+        )
 
     out = {
         "dataset": "glove100",
-        "hardness_from": "recall@10, HNSW ef=160",
+        "hardness_from": hardness_desc,
+        "hardness_k": args.hardness_k,
+        "hardness_ef": hardness_ef,
+        "levels_def": [
+            {"level": n, "lo": lo, "hi": hi, "inclusive": inclusive}
+            for n, lo, hi in levels
+        ],
         "graph": "faiss HNSW M=16 efC=200, level-0 out-edges, uncapped directed BFS",
-        "k_gt": K_GT,
+        "k_gt": k_gt,
         "pairs": "all C(k,2)" if args.sample is None else f"{args.sample} random",
         "distance": "min(hops u->v, hops v->u); unreachable excluded from avg",
         "n_queries": n_q,
-        "pair_hop_histogram": dict(sorted(hist.items(), key=lambda kv: (kv[0] == "inf", kv[0]))),
+        "pair_hop_histogram": dict(
+            sorted(hist.items(), key=lambda kv: (kv[0] == "inf", kv[0]))
+        ),
         "spearman_recall_vs_avg_dist": corr_recall,
         "spearman_ndist_vs_avg_dist": corr_cost,
         "vs_e10_capped": vs_e10,
         "levels": levels_out,
-        "per_query": {"recalls": recalls.tolist(), "n_dists": n_dists.tolist(), **per_q},
+        "per_query": {
+            "recalls": recalls.tolist(),
+            "n_dists": n_dists.tolist(),
+            **per_q,
+        },
         "elapsed_s": time.perf_counter() - t0,
     }
     suffix = "" if args.sample is None else f"_sample{args.sample}"
+    if args.hardness_k != 10 or k_gt != K_GT:
+        suffix = f"_k{args.hardness_k}_gt{k_gt}" + suffix
     path = RESULTS_DIR / f"e11_avgdist_glove100{suffix}.json"
     path.write_text(json.dumps(out, indent=1))
 
-    print(f"\navg-dist: corr(recall) {corr_recall:+.3f}   corr(n_dist) {corr_cost:+.3f}")
-    print(f"{'level':>14} {'n':>5} {'avg-dist':>9} {'median':>8} {'max':>6} {'unreach':>8}")
+    print(
+        f"\navg-dist: corr(recall) {corr_recall:+.3f}   corr(n_dist) {corr_cost:+.3f}"
+    )
+    print(
+        f"{'level':>14} {'n':>5} {'avg-dist':>9} {'median':>8} {'max':>6} {'unreach':>8}"
+    )
     for lv in levels_out:
-        print(f"{lv['level']:>14} {lv['n_queries']:>5} {lv['avg_dist']['mean']:>9.3f} "
-              f"{lv['avg_dist']['median']:>8.3f} {lv['max_dist']['mean']:>6.2f} "
-              f"{lv['n_unreachable']['sum']:>8d}")
+        print(
+            f"{lv['level']:>14} {lv['n_queries']:>5} {lv['avg_dist']['mean']:>9.3f} "
+            f"{lv['avg_dist']['median']:>8.3f} {lv['max_dist']['mean']:>6.2f} "
+            f"{lv['n_unreachable']['sum']:>8d}"
+        )
     print("pair hop histogram:", out["pair_hop_histogram"])
     if vs_e10:
         print("vs E10 (4-hop cap):", {k: round(v, 4) for k, v in vs_e10.items()})
-    print(f"elapsed {out['elapsed_s']:.0f}s; saved {path.relative_to(RESULTS_DIR.parent)}")
+    print(
+        f"elapsed {out['elapsed_s']:.0f}s; saved {path.relative_to(RESULTS_DIR.parent)}"
+    )
 
 
 if __name__ == "__main__":
