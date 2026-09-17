@@ -29,8 +29,8 @@ import argparse
 
 import numpy as np
 
-from .experiments import get_ctx
 from .graph import DATA_DIR
+from .index import load
 
 N_INTERNAL = 1000
 SEED = 0
@@ -50,7 +50,7 @@ def sample_internal_queries(dataset, n=N_INTERNAL, seed=SEED):
     path = qids_path(dataset, n, seed)
     if path.exists():
         return np.load(path)
-    n_base = len(get_ctx(dataset).ds.train)
+    n_base = len(load(dataset).ds.train)
     rng = np.random.default_rng(seed)
     qids = np.sort(rng.choice(n_base, size=n, replace=False)).astype(np.int64)
     np.save(path, qids)
@@ -68,7 +68,7 @@ def internal_gt(dataset, k=K_GT, n=N_INTERNAL, seed=SEED):
         return qids, np.load(path)
     import faiss
 
-    ds = get_ctx(dataset).ds
+    ds = load(dataset).ds
     d = ds.train.shape[1]
     index = faiss.IndexFlatIP(d) if ds.metric == "cosine" else faiss.IndexFlatL2(d)
     index.add(ds.train)
