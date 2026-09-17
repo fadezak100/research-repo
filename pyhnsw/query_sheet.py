@@ -23,9 +23,9 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
 from openpyxl.utils import get_column_letter
 
-from .experiments import RESULTS_DIR, get_ctx
+from .avgdist import INF, ExactBFS, build_reverse_csr
 from .graph import DATA_DIR
-from .hardness4 import INF, ExactBFS, build_reverse_csr
+from .index import RESULTS_DIR, load
 
 K_GT = 100
 BOLD = Font(bold=True)
@@ -69,7 +69,7 @@ def write_rows(ws, header, rows, widths=None):
 
 def main():
     qi = int(sys.argv[1]) if len(sys.argv) > 1 else 0
-    ctx = get_ctx("glove100")
+    ctx = load("glove100")
     ds, graph = ctx.ds, ctx.graph
     adj0 = graph.adj0
     q = ds.test[qi]
@@ -86,7 +86,7 @@ def main():
     pair_hops = D[iu, ju]
     finite = pair_hops[pair_hops < INF]
 
-    e11 = json.loads((RESULTS_DIR / "e11_avgdist_glove100.json").read_text())
+    e11 = json.loads((RESULTS_DIR / "e11_avgdist_glove100_k10_ef160_gt100.json").read_text())
     recall = e11["per_query"]["recalls"][qi]
     n_dist = e11["per_query"]["n_dists"][qi]
     d_q = 1.0 - ds.train[gt] @ q
