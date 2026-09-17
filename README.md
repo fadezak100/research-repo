@@ -1,261 +1,140 @@
-# ANN Search Research
+# Query hardness in HNSW
 
-Experiments on improving approximate k-nearest neighbor (k-NN) search, focused on
-HNSW (Hierarchical Navigable Small World) graph traversal.
+Why does the same HNSW index, at the same search budget, find all the true
+neighbors of one query and a quarter of another's? This repo measures that:
+it labels queries hard / mid / easy by the recall plain HNSW reaches at a
+fixed `ef`, then measures what is different about the hard ones — in vector
+space and in the graph the search walks.
 
-## Papers
-
-### 1. Patience in Proximity (`patience-in-proximity/`)
-
-> Tommaso Teofili and Jimmy Lin.
-> **"Patience in Proximity: A Simple Early Termination Strategy for HNSW Graph
-> Traversal in Approximate k-Nearest Neighbor Search."**
-> ECIR 2025, LNCS 15574, pp. 401–407.
-> DOI: [10.1007/978-3-031-88714-7_39](https://doi.org/10.1007/978-3-031-88714-7_39)
-
-The paper proposes a saturation-based early-termination strategy ("patience") for
-HNSW graph traversal: instead of exhaustively exploring candidate neighbors, the
-search halts once results stop improving, reducing computational cost without
-significantly hurting accuracy. Evaluated on datasets from the BEIR benchmark.
-
-The paper's experiments ran on **Apache Lucene's** HNSW implementation (v9.11.1,
-via Anserini). The authors later merged the strategy into Lucene itself
-([apache/lucene#14094](https://github.com/apache/lucene/pull/14094)), shipped
-since Lucene 10.2 as
-[`PatienceKnnVectorQuery`](https://lucene.apache.org/core/10_2_2/core/org/apache/lucene/search/PatienceKnnVectorQuery.html)
-— so our experiments run the authors' actual production implementation.
-
-### 2. Ada-ef / Distribution-Aware HNSW (`hnsw-ada-ef/`, `pyhnsw/`)
-
-> Chao Zhang and Renée J. Miller.
-> **"Distribution-Aware Exploration for Adaptive HNSW Search."**
-> SIGMOD 2026 (accepted). arXiv:2512.06636
-
-Instead of one global `efSearch`, Ada-ef takes a *declarative recall target*
-(e.g. 0.95) and picks `ef` per query at runtime, using a Gaussian estimate of
-the query's distance distribution built from dataset statistics (mean vector +
-covariance matrix) computed offline. See **[ADA_EF_EXPLAINED.md](ADA_EF_EXPLAINED.md)**
-for a full walkthrough of the offline and online phases.
-
-`hnsw-ada-ef/` is a clone of the authors' official C++ repo (it also contains
-their reference implementation of PIP at `hnswlib/hnswalg.h:1859`).
-`pyhnsw/` is our Python re-implementation of both papers on a shared engine.
+Everything runs on GloVe-100 (1.18M vectors, cosine) with a Faiss HNSW index
+(M=16, efConstruction=200). All searches go through Faiss; the level-0 graph
+is extracted to numpy only for the graph measurements (BFS).
 
 ## Repo layout
 
 ```
-pyhnsw/                    Unified Python engine: baseline + PIP + Ada-ef
-  graph.py                   Faiss builds the HNSW graph; we extract it to numpy
-  search.py                  one instrumented best-first loop, 3 termination policies
-  ada_ef.py                  Ada-ef offline phase (stats, proxy GT, ef table) + online estimator
-  experiments.py             E1–E6 experiment runner (JSON to results/)
-  plots.py                   charts (PNG to results/figs/)
-tools/                     helper tooling: slide builders, decks, talk notes (not committed)
-ADA_EF_EXPLAINED.md        plain-language walkthrough of Ada-ef offline/online
-results/                   experiment JSONs + figs/ + cached Ada-ef estimator
-faiss/                     Faiss HNSW baseline (Python)
-  baseline_hnsw.py           efSearch sweep: recall@10 + QPS vs ground truth
-  data/                      SIFT1M + GloVe hdf5, cached indexes/graphs (not committed)
-  results/                   benchmark results (JSON)
-patience-in-proximity/     Paper + Lucene experiments (Java, paper's engine)
-  PIP.pdf                    the paper
-  export_sift_bins.py        dumps SIFT1M arrays to raw binaries for Java
-  LuceneHnswBenchmark.java   index + search benchmark: baseline vs patience
-  lib/                       lucene-core jar
-  data/, index/, results/    binaries, Lucene index, results (not committed)
-hnsw-ada-ef/               Authors' official Ada-ef C++ repo (reference only)
+pyhnsw/
+  graph.py             load dataset, build/load the Faiss index, extract the level-0 graph
+  index.py             search (batched) / search_with_cost (per-query ndis via hnsw_stats), gt_for_k
+  labels.py            hardness labels: recall + cost at fixed (k, ef), hard/mid/easy bins
+  internal_queries.py  1000 random index nodes as queries + their exact GT (self removed)
+  gt_metrics.py        E7   vector-space metrics of a query's true neighbors vs hardness
+  causal.py            E9   does more budget fix hard queries? (asymptote, cost link)
+  avgdist.py           E11  exact avg-dist: hops between pairs of true neighbors (BFS engine)
+  adjacency.py         E12a how much of a node's true neighborhood is wired to it
+  internal_avgdist.py  E12b avg-dist + hops-from-node for internal queries, vs external
+  query_sheet.py       Excel walkthrough of avg-dist for one query
+  plots.py             all figures (results/figs/*.png)
+results/               experiment JSON + figs/
+faiss/data/            hdf5 datasets, built indexes, graph/GT caches (not committed)
+tools/                 slide builders, decks, session notes (not committed)
 ```
 
 ## Datasets
 
-Both from [ann-benchmarks](https://ann-benchmarks.com), with 10k queries and
-exact top-100 ground truth each:
+From [ann-benchmarks](https://ann-benchmarks.com), 10k queries and exact
+top-100 ground truth each. Only the first 1000 queries are used.
 
-- **SIFT1M** (`sift-128-euclidean`, L2): 1M × 128.
-  `curl -L -o faiss/data/sift-128-euclidean.hdf5 http://ann-benchmarks.com/sift-128-euclidean.hdf5`
-- **GloVe-100** (`glove-100-angular`, cosine): 1.18M × 100 — used in the
-  Ada-ef paper; its Gaussian theory requires inner-product/cosine.
+- **GloVe-100** (`glove-100-angular`, cosine): 1.18M × 100.
   `curl -L -o faiss/data/glove-100-angular.hdf5 http://ann-benchmarks.com/glove-100-angular.hdf5`
+- **SIFT1M** (`sift-128-euclidean`, L2): 1M × 128, loadable but unused so far.
+  `curl -L -o faiss/data/sift-128-euclidean.hdf5 http://ann-benchmarks.com/sift-128-euclidean.hdf5`
+
+Cosine datasets are L2-normalized on load so Faiss's inner-product index
+computes cosine similarity. Exact top-1000 ground truth is brute-forced with
+a flat index and cached (`gt_for_k`).
 
 ## Running
 
 ```bash
-# Python env (once)
 uv venv --python 3.13 .venv
 uv pip install --python .venv/bin/python -r requirements.txt
 
-# Faiss baseline
-.venv/bin/python faiss/baseline_hnsw.py
-
-# Unified Python engine: all experiments, charts, slides
-.venv/bin/python -m pyhnsw.experiments all   # E1–E6 → results/*.json
-.venv/bin/python -m pyhnsw.plots             # → results/figs/*.png
-.venv/bin/python tools/make_slides.py        # → tools/slides/meeting-2026-08-12.pptx
-
-# Lucene benchmark (needs OpenJDK 21: brew install openjdk@21)
-JAVA=/opt/homebrew/opt/openjdk@21/bin
-.venv/bin/python patience-in-proximity/export_sift_bins.py
-cd patience-in-proximity
-$JAVA/javac -cp lib/lucene-core-10.5.0.jar -d build LuceneHnswBenchmark.java
-$JAVA/java --add-modules jdk.incubator.vector -Xmx6g \
-    -cp build:lib/lucene-core-10.5.0.jar LuceneHnswBenchmark index data index
-$JAVA/java --add-modules jdk.incubator.vector -Xmx4g \
-    -cp build:lib/lucene-core-10.5.0.jar LuceneHnswBenchmark search data index results/lucene_sift1m.json
+.venv/bin/python -m pyhnsw.labels --queries external   # results/labels_external_glove100.json
+.venv/bin/python -m pyhnsw.internal_queries            # 1000 random nodes + exact GT (cached)
+.venv/bin/python -m pyhnsw.labels --queries internal   # results/labels_internal_glove100.json
+.venv/bin/python -m pyhnsw.gt_metrics                  # E7  -> e7_hardness_glove100.json
+.venv/bin/python -m pyhnsw.causal                      # E9  -> e9_hardness_causal_glove100.json
+.venv/bin/python -m pyhnsw.avgdist --label k1000_ef1000 --k-gt 100     # E11 (~4 min; GT-1000 ~2 h)
+.venv/bin/python -m pyhnsw.adjacency                   # E12a -> adjacency_internal_glove100.json
+.venv/bin/python -m pyhnsw.internal_avgdist --label k1000_ef1000 --k-gt 100   # E12b (~4 min)
+.venv/bin/python -m pyhnsw.plots                       # all figures
 ```
 
-## Pipeline (current state)
+The first run builds the index (~1 min) and caches it under `faiss/data/`.
 
-```mermaid
-flowchart TD
-    HDF5["faiss/data/sift-128-euclidean.hdf5<br/>1M base vectors, 10k queries, exact ground truth"]
+## Method
 
-    subgraph F["faiss/ (Python)"]
-        FBUILD["Build Faiss HNSW index<br/>M=16, efConstruction=200"]
-        FSWEEP["Sweep efSearch 10–320<br/>recall@10 + QPS"]
-        FJSON["results/baseline_*.json"]
-        FBUILD --> FSWEEP --> FJSON
-    end
+**Labels.** Plain HNSW at a fixed `ef`, asking for `k`; the recall it reaches
+is the query's label. Cost is the number of distance computations
+(`faiss.cvar.hnsw_stats.ndis`, single-threaded). Operating points:
 
-    subgraph L["patience-in-proximity/ (Java, Lucene 10.5)"]
-        BINS["export_sift_bins.py<br/>hdf5 → raw binaries"]
-        LBUILD["Build Lucene HNSW index<br/>M=16, beamWidth=100"]
-        LSWEEP["Sweep efSearch 10–320:<br/>KnnFloatVectorQuery (baseline)<br/>vs PatienceKnnVectorQuery (paper)"]
-        LJSON["results/lucene_sift1m.json"]
-        BINS --> LBUILD --> LSWEEP --> LJSON
-    end
+| label | k | ef | bins |
+|---|---|---|---|
+| `k10_ef160` | 10 | 160 | ≤0.25 / ~0.5 / ~0.75 / ~1.0 (closed) |
+| `k10_ef40` | 10 | 40 | same |
+| `k100_ef100` | 100 | 100 | <0.6 / 0.6–0.7 / 0.7–0.8 / ≥0.8 (half-open) |
+| `k1000_ef1000` | 1000 | 1000 | same |
 
-    HDF5 --> FBUILD
-    HDF5 --> BINS
+**Internal queries.** 1000 index nodes drawn at random (seed 0) and used as
+queries with their own vector. Exact ground truth is brute-forced and the
+node itself removed by id; the search asks for k+1 and drops the node from
+its results, so a perfect search still scores 1.0.
 
-    CMP["Compare: does patience hold recall<br/>while improving QPS?"]
-    FJSON -.-> CMP
-    LJSON --> CMP
-```
+**avg-dist** (the professor's whiteboard definition): for a query's true
+top-100, the mean over all 4,950 pairs of the shortest-path hop count in the
+level-0 graph, `min(hops u→v, hops v→u)`, exact via bidirectional BFS
+(forward 3 rings, backward 2 over a cached reverse adjacency; deeper pass and
+plain BFS as fallbacks). Pairs unreachable in both directions are excluded and
+counted (none on GloVe).
 
-## Results so far (SIFT1M, Lucene 10.5, single-threaded, M=16)
+**Hops from the node** (internal queries only): one BFS from the node to
+each of its true neighbors; reported as the mean, the share at one hop, and
+the mean by neighbor rank (1–16, 17–32, 33–100).
 
-| efSearch | baseline recall@10 | patience recall@10 | baseline QPS | patience QPS | QPS gain |
-|---|---|---|---|---|---|
-| 10 | 0.7183 | 0.7183 | 21,492 | 23,294 | +8% |
-| 40 | 0.9234 | 0.9230 | 9,934 | 10,094 | +2% |
-| 80 | 0.9689 | 0.9665 | 5,690 | 5,950 | +5% |
-| 160 | 0.9888 | 0.9852 | 3,096 | 3,647 | +18% |
-| 320 | 0.9966 | 0.9925 | 1,682 | 2,470 | +47% |
+## Results (GloVe-100, 1000 queries per set)
 
-Consistent with the paper: patience pays off most in the high-exploration regime
-(large efSearch), where exhaustive HNSW wastes visits on candidates that no
-longer improve the top-k; recall cost stays under half a point.
+**E7 — vector-space metrics.** Hard queries' true neighbors barely stand out
+from random vectors (rel_contrast, Spearman +0.71 with recall) and are spread
+far apart (gt_pairwise −0.52); GT in-degree shows no signal.
 
-## Results — unified Python engine (pyhnsw, k=10, 1000 queries)
+**E9 — budget.** The hard bin (34 queries, recall@10 ≤ 0.25 at ef=160)
+climbs 0.16 → 0.93 as ef goes 160 → 5120 with no plateau: the neighbors are
+reachable, at ~22× the cost. Per-query cost correlates −0.82 with
+rel_contrast and +0.77 with GT spread — hard and expensive for the same
+reason.
 
-Engine validation (E1): the Python search loop reproduces Faiss C++ recall at
-every efSearch value on SIFT1M to within ±0.0002 (residual difference is
-tie-breaking on equal distances).
+**E11 / E12 — avg-dist, external vs internal queries** (true top-100):
 
-**PIP** (E2): reproduces on SIFT1M — at ef=160, distance computations drop
-2,748 → 1,235 (−55%) for recall 0.994 → 0.962; the Lucene production run shows
-the same pattern in QPS. But on GloVe-100 (hard, skewed embedding space) PIP
-**plateaus at recall ≈ 0.80** no matter how large ef is — saturation of the
-top-k is a misleading stopping signal under hubness (the Ada-ef paper reports
-the same weakness).
+| hardness label | queries | hard | mid | mid | easy | Spearman vs recall |
+|---|---|---|---|---|---|---|
+| recall@1000, ef=1000 | internal (nodes) | 4.13 (n=127) | 3.73 (128) | 3.36 (165) | 2.84 (580) | −0.88 |
+| | external (test set) | 4.10 (n=145) | 3.75 (150) | 3.39 (156) | 2.89 (549) | −0.88 |
+| recall@10, ef=160 | internal | 4.22 (17) | 4.14 (63) | 3.79 (158) | 2.98 (762) | −0.65 |
+| | external | 4.14 (34) | 4.07 (94) | 3.71 (182) | 3.00 (690) | −0.70 |
+| recall@100, ef=100 | internal | 3.95 (261) | 3.45 (89) | 3.22 (111) | 2.79 (539) | −0.96 |
 
-**Ada-ef vs PIP head-to-head** (E5/E6, GloVe-100, target recall 0.95):
+Internal and external queries agree bin for bin: the signal belongs to the
+node's neighborhood in the graph, not to the query being an outsider. Labels
+and cost per bin also match (k=1000: hard ≈ 21.8k vs easy ≈ 13.4k distance
+computations, both sets).
 
-| method | avg recall | p5 | p1 | dist comps/query |
-|---|---|---|---|---|
-| HNSW ef=160 | 0.853 | 0.30 | 0.10 | 3,429 |
-| HNSW ef=640 | 0.934 | 0.60 | 0.30 | 11,033 |
-| PIP (γ=.95, Δ=30) | 0.799 | 0.20 | 0.10 | 1,942 |
-| **Ada-ef (target .95)** | **0.980** | **0.90** | **0.70** | 30,800 |
-| Hybrid: Ada-ef + patience Δ=0.5·ef | 0.976 | 0.90 | 0.70 | 23,247 |
-| Hybrid: Ada-ef + patience Δ=400 | 0.946 | 0.70 | 0.50 | 11,388 |
+**E12 — wiring.** Of a node's 16 nearest true neighbors, only 6.3 are direct
+out-edges (range 0–15); of its ≤32 out-edges, 15.5 are in its true top-100.
+Hops from the node to its true top-100: hard 3.56 vs easy 2.45 (Spearman
+−0.73 with recall); only 12–17% are one hop away.
 
-Ada-ef is the only method that meets the declarative target — overshooting it
-on GloVe (the paper's own GloVe results overshoot too), with a transformed
-tail (p5: 0.30 → 0.90 vs fixed ef=160). Its offline phase costs ~16s on a
-laptop. The hybrid (patience early-exit *inside* Ada-ef's per-query budget)
-cuts Ada-ef's cost by 25% with the tail intact when patience scales with the
-estimated ef, or by 63% dipping just under target with a fixed Δ — the
-per-query stopping *signal* is the real open problem.
+**Not in this repo any more:** the PIP / Ada-ef comparison work and the
+Lucene benchmark (tag `pre-cleanup`), and the index-repair / per-query-budget
+pilots (session notes under `tools/`). Their conclusions: local graph repair
+gains ~1 point; a denser rebuild (M=32, efC=500) saves 20–28% at matched
+recall but hard queries stay 1.6–1.7× as expensive; a per-query budget from
+an online contrast score ties PIP and beats fixed ef on the tail.
 
-Charts in `results/figs/`; deck in `tools/slides/meeting-2026-08-12.pptx`.
+## Next
 
-## Results — k=100 / k=1000 and the PIP-paper replication (E8, 2026-08-17)
-
-The PIP paper's win is *large-k* retrieval (BEIR, k=1000): equal quality at
-lower cost. E8 reruns the frontier at k ∈ {100, 1000} (exact GT@1000
-brute-forced and cached in `faiss/data/*_gt1000_q1000.npy`) and reproduces the
-paper's Table 1 in-engine, same beam ef=4000 for both methods:
-
-| dataset | method | R@10 | R@100 | R@1000 | dist/query |
-|---|---|---|---|---|---|
-| SIFT1M | HNSW ef=4000 | 0.9985 | 0.9998 | 0.9997 | 33,275 |
-| SIFT1M | PIP γ=.999 Δ=300 | 0.9985 | 0.9995 | 0.9901 | **11,864 (−64%)** |
-| GloVe-100 | HNSW ef=4000 | 0.9862 | 0.9732 | 0.9301 | 54,920 |
-| GloVe-100 | PIP γ=.999 Δ=300 | 0.9786 | 0.9572 | 0.8786 | 29,389 (−46%) |
-
-Key findings: (1) both PIP knobs must scale with k — Lucene's production
-defaults are γ=0.995, Δ=max(7, 0.3k), not the γ=0.95/Δ=30 the Ada-ef paper
-used, and at k=1000 even γ=0.995 is too loose on GloVe (γ=0.95 tolerates 50
-churning neighbors per hop); (2) with production parameters PIP sits *on* the
-baseline frontier at large k instead of below it (k=10); (3) GloVe's hard
-tail still pays (R@1000 −5pt, p5 0.72) — saturation stopping overcharges
-exactly the queries E7/E9 explain.
-
-## Results — what makes a query hard (E7 + E9, GloVe-100)
-
-E7 (correlational, all 1000 queries): hard queries' true neighbors barely
-stand out from random vectors (rel_contrast, Spearman +0.71 with recall) and
-are spread far apart from each other (gt_pairwise −0.52); GT in-degree shows
-no signal (hardness ≠ unpopular nodes). E9 (causal, `pyhnsw/hardness2.py`):
-
-- **Asymptote:** hard-bin (34 queries ≤0.25 recall@10 at ef=160) recall climbs
-  0.16 → 0.93 as ef goes 160 → 5120 with no plateau — the GT *is* reachable,
-  at ~22× the cost.
-- **Oracle entry:** starting the search at the query's true NN only lifts
-  0.16 → 0.33 (ef=160) and 0.60 → 0.64 (ef=640) — routing is not the
-  bottleneck; even from inside the GT the beam cannot reach the rest of it.
-- **Cost link:** per-query distance computations correlate ρ=−0.82 with
-  rel_contrast and ρ=+0.77 with GT spread — hard and expensive for the same
-  geometric reason.
-
-Verdict: hardness is caused by data geometry (scattered, low-contrast GT that
-the graph never wires together) and is only fixable by per-query budget, not
-by better routing — direct evidence for the adaptive-budget direction.
-
-Deck for the follow-up meeting: `tools/slides/meeting-2026-08-19.pptx`
-(`tools/make_slides2.py`).
-
-## Research directions
-
-1. **Distribution-aware early termination with a recall contract** (primary;
-   E6 is day-one evidence): replace PIP's global (γ, Δ) with per-query values
-   derived from Ada-ef's query score — stop when the estimated probability
-   that the top-k is final exceeds the target. Ada-ef tail guarantees at
-   PIP-like cost, no learned model (vs DARTH).
-2. **Extend Ada-ef to L2/Euclidean** — explicitly open in the paper; the
-   authors left a commented-out `SquaredEuclideanDistanceEstimator` draft in
-   `hnsw-ada-ef/hnswlib/distribution.h`.
-3. **Distribution-aware index construction** — both papers only touch search;
-   use FDL statistics to set per-insert efConstruction.
-4. **Saturation trajectory as a free online recall estimator** — φ-history as
-   a per-query recall certificate, compared against DARTH's learned predictor.
-5. **Layer-specific patience** — PIP's own future-work note.
-
-## Experiment plan
-
-1. **Phase 1 (SIFT1M):** ✅ Faiss baseline; Lucene baseline-vs-patience benchmark
-   using the paper's engine and the authors' merged implementation.
-2. **Phase 2 (unified engine):** ✅ PIP + Ada-ef + hybrid on SIFT1M and
-   GloVe-100 (E1–E6 in `pyhnsw/experiments.py`).
-3. **Phase 3 (scale to the papers' settings):** MS MARCO embeddings, k=100,
-   DARTH baseline; BEIR datasets (TREC-COVID first) with `bge-base-en-v1.5`
-   for the PIP comparison.
-
-## Tools
-
-- **[Faiss](https://github.com/facebookresearch/faiss)** (Python) — Meta's
-  similarity-search library; our independent HNSW reference implementation.
-- **[Apache Lucene](https://lucene.apache.org)** (Java) — the search engine the
-  paper's experiments ran on; ships the authors' `PatienceKnnVectorQuery`.
-- **OpenJDK 21** — required by Lucene 10.x (`brew install openjdk@21`).
+1. Per-hop trace: how many new vectors enter the result list at each step of
+   the search, averaged per hardness bin (raw material for a dynamic stop).
+2. Rebuild with a shuffled insertion order and check whether the same nodes
+   stay hard.
+3. avg-dist within rank segments of the true neighbor list.
