@@ -1,7 +1,7 @@
 """E12b — graph distances for INTERNAL queries, compared with external ones.
 
 Inputs: the 1000 sampled nodes + self-excluded GT (`internal_queries.py`)
-and their hardness labels (`hardness5.py`, results/e12_hardness_internal_*).
+and their hardness labels (`labels.py --queries internal`, results/labels_internal_*).
 
 Per node q, two measurements on the level-0 HNSW graph (out-edges, the graph
 the beam search walks; exact, uncapped BFS — same code as E11):
@@ -18,13 +18,13 @@ the beam search walks; exact, uncapped BFS — same code as E11):
 Both are binned by the hardness label and correlated (Spearman) with the
 node's recall and search cost. The matching EXTERNAL-query E11 result is
 loaded and its per-bin avg-dist is written next to the internal one:
-  label k10   + GT-100  <-> e11_avgdist_glove100.json
-  label k1000 + GT-100  <-> e11_avgdist_glove100_k1000_gt100.json
-  label k1000 + GT-1000 <-> e11_avgdist_glove100_k1000_gt1000.json
-  label k100            no external run exists (noted in the output)
+  k10_ef160   + GT-100  <-> e11_avgdist_glove100_k10_ef160_gt100.json
+  k1000_ef1000 + GT-100 <-> e11_avgdist_glove100_k1000_ef1000_gt100.json
+  k1000_ef1000 + GT-1000 <-> e11_avgdist_glove100_k1000_ef1000_gt1000.json
+  k100_ef100            no external run exists (noted in the output)
 
 Output: results/e12_avgdist_internal_glove100_{label}_gt{K}.json
-Usage:  .venv/bin/python -m pyhnsw.hardness6 [--label k10|k100|k1000]
+Usage:  .venv/bin/python -m pyhnsw.internal_avgdist [--label k1000_ef1000|...]
             [--k-gt 100|1000] [--sample I] [--n-queries N]
 Runtime: GT-100 ~3 min; GT-1000 ~2 h (499,500 pairs per node). Checkpoints
 every 25 nodes in faiss/data/ and resumes.
@@ -36,10 +36,11 @@ import time
 
 import numpy as np
 
-from .experiments import RESULTS_DIR, get_ctx
 from .graph import DATA_DIR
-from .hardness import spearman
-from .hardness4 import (
+from .gt_metrics import spearman
+from .index import RESULTS_DIR, load
+from .labels import CONFIGS
+from .avgdist import (
     INF,
     MeetInMiddle,
     build_reverse_csr,
@@ -51,9 +52,9 @@ from .internal_queries import K_GT, N_INTERNAL, SEED, internal_gt
 RANK_GROUPS = [("1-16", 0, 16), ("17-32", 16, 32), ("33-100", 32, 100), ("101-1000", 100, 1000)]
 
 EXTERNAL_FILES = {
-    ("k10", 100): "e11_avgdist_glove100",
-    ("k1000", 100): "e11_avgdist_glove100_k1000_gt100",
-    ("k1000", 1000): "e11_avgdist_glove100_k1000_gt1000",
+    ("k10_ef160", 100): "e11_avgdist_glove100_k10_ef160_gt100",
+    ("k1000_ef1000", 100): "e11_avgdist_glove100_k1000_ef1000_gt100",
+    ("k1000_ef1000", 1000): "e11_avgdist_glove100_k1000_ef1000_gt1000",
 }
 
 
@@ -110,8 +111,8 @@ def load_external(label, k_gt):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--dataset", default="glove100")
-    ap.add_argument("--label", default="k1000", choices=("k10", "k10_ef40", "k100", "k1000"),
-                    help="hardness label from e12_hardness_internal (which k/ef bins)")
+    ap.add_argument("--label", default="k1000_ef1000", choices=tuple(CONFIGS),
+                    help="operating point of the internal labels (labels.py --queries internal)")
     ap.add_argument("--k-gt", type=int, default=100, choices=(100, 1000),
                     help="size of the true-neighbor set whose pairs are measured")
     ap.add_argument("--sample", type=int, default=None,
@@ -122,14 +123,14 @@ def main():
     args = ap.parse_args()
     k_gt = args.k_gt
 
-    ctx = get_ctx(args.dataset)
+    ctx = load(args.dataset)
     graph = ctx.graph
     indptr, rsrc = build_reverse_csr(graph.adj0, DATA_DIR / f"{args.dataset}_radj_m16_efc200.npz")
     bfs = MeetInMiddle(graph.adj0, indptr, rsrc)
     rng = np.random.default_rng(0)
 
     qids, gt_all = internal_gt(args.dataset, K_GT, args.n, args.seed)
-    labels = json.loads((RESULTS_DIR / f"e12_hardness_internal_{args.dataset}.json").read_text())
+    labels = json.loads((RESULTS_DIR / f"labels_internal_{args.dataset}.json").read_text())
     assert labels["qids"] == qids.tolist(), "hardness labels were made for different nodes"
     cfg = labels["configs"][args.label]
     recalls = np.array(cfg["recalls"])

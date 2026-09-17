@@ -24,21 +24,16 @@ Metrics per query (GT = its exact top-100 neighbor vectors):
   gt_indegree   mean in-degree of GT nodes in the full graph — how "popular" /
                 reachable they are (hubness): rarely-linked GT = hard to reach
 
-Usage: .venv/bin/python -m pyhnsw.hardness
+Usage: .venv/bin/python -m pyhnsw.gt_metrics
 """
 
 import json
 
 import numpy as np
 
-from .experiments import RESULTS_DIR, get_ctx
+from .index import RESULTS_DIR, load
+from .labels import LEVELS_K10 as LEVELS, load_labels
 
-LEVELS = [
-    ("<=0.25 (hard)", 0.0, 0.25),
-    ("~0.5", 0.26, 0.5),
-    ("~0.75", 0.51, 0.8),
-    ("~1.0 (easy)", 0.81, 1.0),
-]
 
 
 def spearman(x, y):
@@ -48,12 +43,11 @@ def spearman(x, y):
 
 
 def main():
-    ctx = get_ctx("glove100")
+    ctx = load("glove100")
     ds, graph = ctx.ds, ctx.graph
     adj0 = graph.adj0
 
-    e4 = json.loads((RESULTS_DIR / "e4_recall_skew_glove100.json").read_text())
-    recalls = np.array(e4["configs"]["baseline_ef160"]["recalls"])
+    recalls, _, _, _ = load_labels("glove100", "external", "k10_ef160")
     n_q = len(recalls)
 
     # in-degree of every node in the level-0 graph (how often it is linked to)
