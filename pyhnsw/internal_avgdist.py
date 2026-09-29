@@ -16,16 +16,15 @@ the beam search walks; exact, uncapped BFS — same code as E11):
                One BFS per node instead of C(k,2) pairs.
 
 Both are binned by the hardness label and correlated (Spearman) with the
-node's recall and search cost. The matching EXTERNAL-query E11 result is
-loaded and its per-bin avg-dist is written next to the internal one:
-  k10_ef160   + GT-100  <-> e11_avgdist_glove100_k10_ef160_gt100.json
-  k1000_ef1000 + GT-100 <-> e11_avgdist_glove100_k1000_ef1000_gt100.json
-  k1000_ef1000 + GT-1000 <-> e11_avgdist_glove100_k1000_ef1000_gt1000.json
-  k100_ef100            no external run exists (noted in the output)
+node's recall and search cost. The matching EXTERNAL-query E11 result
+(results/e11_avgdist_{dataset}_{label}_gt{K}.json, from avgdist.py with the
+same --label and --k-gt) is loaded when it exists and its per-bin avg-dist
+is written next to the internal one; otherwise the output notes that no
+external run exists.
 
-Output: results/e12_avgdist_internal_glove100_{label}_gt{K}.json
-Usage:  .venv/bin/python -m pyhnsw.internal_avgdist [--label k1000_ef1000|...]
-            [--k-gt 100|1000] [--sample I] [--n-queries N]
+Output: results/e12_avgdist_internal_{dataset}_{label}_gt{K}.json
+Usage:  .venv/bin/python -m pyhnsw.internal_avgdist [--dataset glove100|sift1m]
+            [--label k1000_ef1000|...] [--k-gt 100|1000] [--sample I] [--n-queries N]
 Runtime: GT-100 ~3 min; GT-1000 ~2 h (499,500 pairs per node). Checkpoints
 every 25 nodes in faiss/data/ and resumes.
 """
@@ -51,11 +50,11 @@ from .internal_queries import K_GT, N_INTERNAL, SEED, internal_gt
 
 RANK_GROUPS = [("1-16", 0, 16), ("17-32", 16, 32), ("33-100", 32, 100), ("101-1000", 100, 1000)]
 
-EXTERNAL_FILES = {
-    ("k10_ef160", 100): "e11_avgdist_glove100_k10_ef160_gt100",
-    ("k1000_ef1000", 100): "e11_avgdist_glove100_k1000_ef1000_gt100",
-    ("k1000_ef1000", 1000): "e11_avgdist_glove100_k1000_ef1000_gt1000",
-}
+
+def external_name(dataset, label, k_gt):
+    """The E11 (external-query) result file at the same operating point and
+    GT size (avgdist.py)."""
+    return f"e11_avgdist_{dataset}_{label}_gt{k_gt}"
 
 
 def bin_mask(recalls, b):
@@ -89,9 +88,9 @@ def summarize_q_hops(h, k_gt):
     return out
 
 
-def load_external(label, k_gt):
-    name = EXTERNAL_FILES.get((label, k_gt))
-    if name is None or not (RESULTS_DIR / f"{name}.json").exists():
+def load_external(dataset, label, k_gt):
+    name = external_name(dataset, label, k_gt)
+    if not (RESULTS_DIR / f"{name}.json").exists():
         return None
     e = json.loads((RESULTS_DIR / f"{name}.json").read_text())
     return {
@@ -138,15 +137,16 @@ def main():
     bins = cfg["bins"]
     n_q = args.n_queries or len(qids)
     qids, gt_all, recalls, n_dists = qids[:n_q], gt_all[:n_q], recalls[:n_q], n_dists[:n_q]
-    print(f"hardness label {args.label} (k={cfg['k']}, ef={cfg['ef']}); GT top-{k_gt}; "
-          f"{n_q} internal queries")
+    print(f"{args.dataset}: hardness label {args.label} (k={cfg['k']}, ef={cfg['ef']}); "
+          f"GT top-{k_gt}; {n_q} internal queries")
 
     keys = ["avg_dist", "median_dist", "max_dist", "n_unreachable",
             "q_hops_mean", "q_hops_max", "q_frac_1hop", "q_unreachable"]
     keys += [f"q_hops_rank_{g}" for g, lo, _ in RANK_GROUPS if lo < k_gt]
     per_q = {k: [] for k in keys}
     hist, q_hist = {}, {}
-    tag = f"{args.label}_gt{k_gt}_s{args.sample}" + (f"_n{n_q}" if args.n_queries else "")
+    tag = (f"{args.dataset}_{args.label}_gt{k_gt}_s{args.sample}"
+           + (f"_n{n_q}" if args.n_queries else ""))
     ckpt = DATA_DIR / f"e12b_ckpt_{tag}.json"
     if ckpt.exists():
         saved = json.loads(ckpt.read_text())
@@ -190,7 +190,7 @@ def main():
         "avg_dist_vs_q_hops": spearman(avg, qh),
     }
 
-    external = load_external(args.label, k_gt)
+    external = load_external(args.dataset, args.label, k_gt)
     ext_by_level = {lv["level"]: lv for lv in external["levels"]} if external else {}
 
     levels_out = []
@@ -254,7 +254,8 @@ def main():
 
     for lv in levels_out:
         e = lv["external"]
-        ext = f"{e['avg_dist_mean']:.3f} (n={e['n_queries']})" if e else "-"
+        ext = (f"{e['avg_dist_mean']:.3f} (n={e['n_queries']})"
+               if e and e["avg_dist_mean"] is not None else "-")
         qh_ = lv["q_hops"]
         pct = None if qh_["frac_1hop"] is None else 100 * qh_["frac_1hop"]
         print(f"{lv['level']:>14} {lv['n_queries']:>5} {f(lv['avg_dist']['mean'], '.3f'):>9} {ext:>13} "

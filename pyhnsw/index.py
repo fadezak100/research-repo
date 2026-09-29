@@ -58,9 +58,11 @@ def search(index, Q, k, ef, threads=None):
     return ids
 
 
-def search_with_cost(index, Q, k, ef):
+def search_with_cost(index, Q, k, ef, with_dists=False):
     """One query at a time, single-threaded, so faiss.cvar.hnsw_stats gives
-    the per-query cost. Returns (ids (n,k), ndis (n,), nhops (n,))."""
+    the per-query cost. Returns (ids (n,k), ndis (n,), nhops (n,)); with
+    with_dists=True also the raw Faiss scores (inner product for cosine
+    indexes, squared L2 otherwise) as a fourth array."""
     Q = np.ascontiguousarray(Q, dtype=np.float32)
     if Q.ndim == 1:
         Q = Q[None, :]
@@ -69,17 +71,21 @@ def search_with_cost(index, Q, k, ef):
     faiss.omp_set_num_threads(1)
     index.hnsw.efSearch = int(ef)
     ids = np.empty((len(Q), k), dtype=np.int64)
+    dists = np.empty((len(Q), k), dtype=np.float32)
     ndis = np.empty(len(Q), dtype=np.int64)
     nhops = np.empty(len(Q), dtype=np.int64)
     try:
         for i in range(len(Q)):
             stats.reset()
-            _, I = index.search(Q[i : i + 1], int(k))
+            D, I = index.search(Q[i : i + 1], int(k))
             ids[i] = I[0]
+            dists[i] = D[0]
             ndis[i] = stats.ndis
             nhops[i] = stats.nhops
     finally:
         faiss.omp_set_num_threads(prev_threads)
+    if with_dists:
+        return ids, ndis, nhops, dists
     return ids, ndis, nhops
 
 
