@@ -15,14 +15,19 @@ Query sets
 Operating points (ef fixed per k):
   k10_ef160     recall@10 at ef=160      bins <=0.25 / ~0.5 / ~0.75 / ~1.0 (closed)
   k10_ef40      recall@10 at ef=40       same bins
+  k10_ef16      recall@10 at ef=16       (SIFT1M: ef=160 is saturated at 0.99)
   k100_ef100    recall@100 at ef=100     bins <0.6 / 0.6-0.7 / 0.7-0.8 / >=0.8 (half-open)
   k1000_ef1000  recall@1000 at ef=1000   same bins
+Bin edges are per dataset (BINS): SIFT1M is much easier for HNSW, so its
+bins sit higher (k=10: <=0.5 / 0.6-0.7 / 0.8-0.9 / 1.0; continuous:
+<0.85 / 0.85-0.90 / 0.90-0.95 / >=0.95). DATASET_CONFIGS lists the operating
+points run by default for each dataset.
 
 Output: results/labels_{external,internal}_{dataset}.json with, per operating
 point, the per-query recalls, distance computations (ndis) and hops, and the
 bin table. Consumers read it through load_labels().
 
-Usage: .venv/bin/python -m pyhnsw.labels [--dataset glove100]
+Usage: .venv/bin/python -m pyhnsw.labels [--dataset glove100|sift1m]
            [--queries external|internal] [--only k10_ef160,k1000_ef1000]
 """
 
@@ -48,18 +53,47 @@ LEVELS_CONT = [
     ("0.7-0.8", 0.7, 0.8),
     (">=0.8 (easy)", 0.8, 1.01),
 ]
+# SIFT1M is much easier for HNSW (recall@1000 at ef=1000 >= 0.93 for every
+# query), so its bins sit higher; same shapes (closed for k=10, half-open
+# otherwise). Edges chosen from the recall percentiles of the external
+# queries so the hard bin holds ~12% of them, as on GloVe.
+LEVELS_K10_SIFT = [
+    ("<=0.5 (hard)", 0.0, 0.5),
+    ("0.6-0.7", 0.51, 0.7),
+    ("0.8-0.9", 0.71, 0.9),
+    ("1.0 (easy)", 0.91, 1.0),
+]
+LEVELS_CONT_SIFT = [
+    ("<0.85 (hard)", 0.0, 0.85),
+    ("0.85-0.90", 0.85, 0.90),
+    ("0.90-0.95", 0.90, 0.95),
+    (">=0.95 (easy)", 0.95, 1.01),
+]
+BINS = {  # dataset -> (k=10 bins, continuous bins)
+    "glove100": (LEVELS_K10, LEVELS_CONT),
+    "sift1m": (LEVELS_K10_SIFT, LEVELS_CONT_SIFT),
+}
 
 CONFIGS = {  # label -> (k, ef)
     "k10_ef160": (10, 160),
     "k10_ef40": (10, 40),
+    "k10_ef16": (10, 16),
     "k100_ef100": (100, 100),
     "k1000_ef1000": (1000, 1000),
 }
+# Operating points run by default per dataset. Faiss's beam is max(ef, k),
+# so ef=100 / ef=1000 are already the cheapest settings for k=100 / k=1000;
+# on SIFT1M k=10 needs ef=16 to spread recall (ef=160 is saturated).
+DATASET_CONFIGS = {
+    "glove100": ["k10_ef160", "k10_ef40", "k100_ef100", "k1000_ef1000"],
+    "sift1m": ["k10_ef16", "k10_ef40", "k100_ef100", "k1000_ef1000"],
+}
 
 
-def levels_for(k):
+def levels_for(k, dataset="glove100"):
     """Bin definitions and whether they are closed intervals."""
-    return (LEVELS_K10, True) if k == 10 else (LEVELS_CONT, False)
+    k10, cont = BINS[dataset]
+    return (k10, True) if k == 10 else (cont, False)
 
 
 def bin_mask(recalls, b):
@@ -69,15 +103,15 @@ def bin_mask(recalls, b):
     return (recalls >= b["lo"]) & ((recalls <= b["hi"]) if b["inclusive"] else (recalls < b["hi"]))
 
 
-def bins_for(k):
-    levels, inclusive = levels_for(k)
+def bins_for(k, dataset="glove100"):
+    levels, inclusive = levels_for(k, dataset)
     return [{"level": n, "lo": lo, "hi": hi, "inclusive": inclusive} for n, lo, hi in levels]
 
 
-def bin_table(recalls, n_dists, k):
+def bin_table(recalls, n_dists, k, dataset="glove100"):
     recalls, n_dists = np.asarray(recalls), np.asarray(n_dists)
     rows = []
-    for b in bins_for(k):
+    for b in bins_for(k, dataset):
         sel = bin_mask(recalls, b)
         rows.append({
             **b,
@@ -126,14 +160,14 @@ def run(dataset="glove100", queries="external", only=None, n=1000, seed=0):
         qids, gt_all = internal_gt(dataset, 1000, n, seed)
         Q = ds.train[qids]
         self_ids = qids
-    labels = only.split(",") if only else list(CONFIGS)
+    labels = only.split(",") if only else DATASET_CONFIGS.get(dataset, list(CONFIGS))
     configs = {}
     for lab in labels:
         k, ef = CONFIGS[lab]
         t0 = time.perf_counter()
         r = label(ctx.index, Q, gt_all, k, ef, self_ids)
         el = time.perf_counter() - t0
-        bins = bin_table(r["recalls"], r["n_dists"], k)
+        bins = bin_table(r["recalls"], r["n_dists"], k, dataset)
         configs[lab] = {
             "k": k, "ef": ef,
             "recall_mean": float(r["recalls"].mean()),

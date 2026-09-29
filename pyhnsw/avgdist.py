@@ -30,8 +30,10 @@ Hardness labels (--label, from labels.py --queries external):
 The GT set whose pairs are measured is --k-gt (100 = the board's top-100,
 1000 = the query's exact top-1000, C(1000,2) = 499,500 pairs per query).
 
-Usage: .venv/bin/python -m pyhnsw.avgdist [--label k10_ef160|k1000_ef1000|...]
-           [--k-gt 100|1000] [--sample I] [--n-queries N]
+Usage: .venv/bin/python -m pyhnsw.avgdist [--dataset glove100|sift1m]
+           [--label k10_ef160|k1000_ef1000|...] [--k-gt 100|1000]
+           [--sample I] [--n-queries N]
+Output: results/e11_avgdist_{dataset}_{label}_gt{K}.json
 """
 
 import argparse
@@ -317,28 +319,30 @@ def main():
         choices=(100, 1000),
         help="size of the ground-truth set whose pairs are measured",
     )
+    ap.add_argument("--dataset", default="glove100")
     args = ap.parse_args()
     k_gt = args.k_gt
+    dataset = args.dataset
 
-    ctx = load("glove100")
+    ctx = load(dataset)
     ds, graph = ctx.ds, ctx.graph
     indptr, rsrc = build_reverse_csr(
-        graph.adj0, DATA_DIR / "glove100_radj_m16_efc200.npz"
+        graph.adj0, DATA_DIR / f"{dataset}_radj_m16_efc200.npz"
     )
     bfs = MeetInMiddle(graph.adj0, indptr, rsrc)
     rng = np.random.default_rng(0)
 
     recalls, n_dists, levels, inclusive, hardness_desc = load_hardness(
-        args.label, args.n_queries
+        args.label, args.n_queries, dataset=dataset
     )
     n_q = len(recalls)
-    ground_truth = gt_for_k("glove100", k_gt) if k_gt > 100 else ds.ground_truth
-    print(f"hardness labels: {hardness_desc}; GT set: top-{k_gt}; queries: {n_q}")
+    ground_truth = gt_for_k(dataset, k_gt) if k_gt > 100 else ds.ground_truth
+    print(f"{dataset}: hardness labels: {hardness_desc}; GT set: top-{k_gt}; queries: {n_q}")
 
     keys = ["avg_dist", "median_dist", "max_dist", "n_unreachable"]
     per_q = {k: [] for k in keys}
     hist = {}
-    ckpt = DATA_DIR / (f"e11_ckpt_{args.label}_gt{k_gt}_s{args.sample}"
+    ckpt = DATA_DIR / (f"e11_ckpt_{dataset}_{args.label}_gt{k_gt}_s{args.sample}"
                        + (f"_n{n_q}" if args.n_queries else "") + ".json")
     if ckpt.exists():
         saved = json.loads(ckpt.read_text())
@@ -389,7 +393,7 @@ def main():
         )
 
     out = {
-        "dataset": "glove100",
+        "dataset": dataset,
         "hardness_from": hardness_desc,
         "hardness_label": args.label,
         "levels_def": [
@@ -419,7 +423,7 @@ def main():
         suffix += f"_sample{args.sample}"
     if args.n_queries:
         suffix += f"_n{n_q}"
-    path = RESULTS_DIR / f"e11_avgdist_glove100{suffix}.json"
+    path = RESULTS_DIR / f"e11_avgdist_{dataset}{suffix}.json"
     path.write_text(json.dumps(out, indent=1))
 
     print(
